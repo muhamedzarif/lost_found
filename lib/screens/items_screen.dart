@@ -211,23 +211,54 @@ class _ItemsScreenState extends State<ItemsScreen>
                               color: const Color(0xFFB8A9E8),
                               backgroundColor: Colors.white,
                               child: ListView.builder(
+                                physics: const BouncingScrollPhysics(),
                                 padding: const EdgeInsets.all(16),
                                 itemCount: items.length,
                                 itemBuilder: (context, index) {
                                   final item = items[index];
-                                  return _LofiItemCard(
-                                    item: item,
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => ChatScreen(
-                                            itemId: item['id'].toString(),
-                                            itemTitle: item['title'] ?? 'Chat',
-                                          ),
+                                  return TweenAnimationBuilder<double>(
+                                    duration: Duration(milliseconds: 300 + (index * 100)),
+                                    tween: Tween(begin: 0.0, end: 1.0),
+                                    curve: Curves.easeOutCubic,
+                                    builder: (context, value, child) {
+                                      return Opacity(
+                                        opacity: value,
+                                        child: Transform.translate(
+                                          offset: Offset(0, 30 * (1 - value)),
+                                          child: child,
                                         ),
                                       );
                                     },
+                                    child: _LofiItemCard(
+                                      item: item,
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          PageRouteBuilder(
+                                            pageBuilder: (context, animation, secondaryAnimation) =>
+                                                ChatScreen(
+                                              itemId: item['id'].toString(),
+                                              itemTitle: item['title'] ?? 'Chat',
+                                            ),
+                                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                              const begin = Offset(1.0, 0.0);
+                                              const end = Offset.zero;
+                                              const curve = Curves.easeInOutCubic;
+                                              var tween = Tween(begin: begin, end: end)
+                                                  .chain(CurveTween(curve: curve));
+                                              return SlideTransition(
+                                                position: animation.drive(tween),
+                                                child: FadeTransition(
+                                                  opacity: animation,
+                                                  child: child,
+                                                ),
+                                              );
+                                            },
+                                            transitionDuration: const Duration(milliseconds: 400),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   );
                                 },
                               ),
@@ -255,8 +286,32 @@ class _LofiItemCard extends StatefulWidget {
   State<_LofiItemCard> createState() => _LofiItemCardState();
 }
 
-class _LofiItemCardState extends State<_LofiItemCard> {
+class _LofiItemCardState extends State<_LofiItemCard>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -265,47 +320,65 @@ class _LofiItemCardState extends State<_LofiItemCard> {
         ? [const Color(0xFFFFB6D9), const Color(0xFFFFD6E8)]
         : [const Color(0xFFB8E8D4), const Color(0xFFD4F1E8)];
 
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        transform: Matrix4.identity()
-          ..translate(0.0, _isHovered ? -6.0 : 0.0),
-        margin: const EdgeInsets.only(bottom: 16),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: _isHovered
-                    ? [
-                        cardGradient[0],
-                        cardGradient[1],
-                      ]
-                    : [
-                        cardGradient[0].withOpacity(0.7),
-                        cardGradient[1].withOpacity(0.7),
-                      ],
+    return AnimatedBuilder(
+      animation: _scaleAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _scaleAnimation.value,
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _isHovered = true),
+            onExit: (_) => setState(() => _isHovered = false),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.identity()
+                ..translate(0.0, _isHovered ? -6.0 : 0.0),
+              margin: const EdgeInsets.only(bottom: 16),
+              child: GestureDetector(
+                onTapDown: (_) => _scaleController.forward(),
+                onTapUp: (_) {
+                  _scaleController.reverse();
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    widget.onTap();
+                  });
+                },
+                onTapCancel: () => _scaleController.reverse(),
+                child: child,
               ),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.6),
-                width: 2,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: cardGradient[0].withOpacity(_isHovered ? 0.35 : 0.2),
-                  blurRadius: _isHovered ? 25 : 15,
-                  offset: Offset(0, _isHovered ? 12 : 8),
-                ),
-              ],
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _isHovered
+                ? [
+                    cardGradient[0],
+                    cardGradient[1],
+                  ]
+                : [
+                    cardGradient[0].withOpacity(0.7),
+                    cardGradient[1].withOpacity(0.7),
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.6),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: cardGradient[0].withOpacity(_isHovered ? 0.35 : 0.2),
+              blurRadius: _isHovered ? 25 : 15,
+              offset: Offset(0, _isHovered ? 12 : 8),
+            ),
+          ],
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
                 // Image or Icon
                 widget.item['image_data'] != null
                     ? Container(
@@ -424,9 +497,7 @@ class _LofiItemCardState extends State<_LofiItemCard> {
                   color: Colors.white.withOpacity(0.7),
                   size: 18,
                 ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );

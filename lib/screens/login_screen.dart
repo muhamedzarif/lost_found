@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'home_screen.dart';
+import 'search_animation_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -61,8 +61,28 @@ class _LoginScreenState extends State<LoginScreen>
         password: passwordController.text.trim(),
       );
       if (mounted) {
-        Navigator.pushReplacement(context,
-            MaterialPageRoute(builder: (ctx) => const HomeScreen()));
+        Navigator.pushReplacement(
+          context,
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const SearchAnimationScreen(),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              const begin = Offset(1.0, 0.0);
+              const end = Offset.zero;
+              const curve = Curves.easeInOutCubic;
+              var tween = Tween(begin: begin, end: end)
+                  .chain(CurveTween(curve: curve));
+              return SlideTransition(
+                position: animation.drive(tween),
+                child: FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+              );
+            },
+            transitionDuration: const Duration(milliseconds: 500),
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -155,10 +175,12 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Lofi Park Illustration
-                        Container(
-                          padding: const EdgeInsets.all(30),
-                          decoration: BoxDecoration(
+                        // Search icon with Hero animation
+                        Hero(
+                          tag: 'park_icon',
+                          child: Container(
+                            padding: const EdgeInsets.all(30),
+                            decoration: BoxDecoration(
                             gradient: LinearGradient(
                               colors: isDark
                                   ? [
@@ -182,13 +204,14 @@ class _LoginScreenState extends State<LoginScreen>
                             ],
                           ),
                           child: Icon(
-                            Icons.park_outlined,
+                            Icons.search_outlined,
                             size: 80,
                             color: isDark
                                 ? const Color(0xFFD4C5F9)
                                 : const Color(0xFF9B7DC6),
                           ),
                         ),
+                      ),
                         const SizedBox(height: 32),
                         // Title with lofi vibes
                         ShaderMask(
@@ -448,63 +471,101 @@ class _LofiButton extends StatefulWidget {
   State<_LofiButton> createState() => _LofiButtonState();
 }
 
-class _LofiButtonState extends State<_LofiButton> {
+class _LofiButtonState extends State<_LofiButton>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        transform: Matrix4.identity()
-          ..scale(_isHovered ? 1.03 : 1.0),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value * (_isHovered ? 1.03 : 1.0),
+            child: GestureDetector(
+              onTapDown: (_) => _scaleController.forward(),
+              onTapUp: (_) {
+                _scaleController.reverse();
+                Future.delayed(const Duration(milliseconds: 80), () {
+                  widget.onPressed();
+                });
+              },
+              onTapCancel: () => _scaleController.reverse(),
+              child: child,
+            ),
+          );
+        },
         child: Container(
           width: double.infinity,
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: _isHovered
                   ? [
-                      const Color(0xFFD1A9E8),
-                      const Color(0xFFE89BC9),
+                      const Color(0xFF667EEA),
+                      const Color(0xFF764BA2),
                     ]
                   : [
-                      const Color(0xFFB8A9E8),
-                      const Color(0xFFD1A9E8),
+                      const Color(0xFF5568D3),
+                      const Color(0xFF6B52A3),
                     ],
             ),
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFFB8A9E8)
-                    .withOpacity(_isHovered ? 0.4 : 0.2),
+                color: const Color(0xFF667EEA)
+                    .withOpacity(_isHovered ? 0.4 : 0.3),
                 blurRadius: _isHovered ? 25 : 15,
                 offset: Offset(0, _isHovered ? 12 : 8),
               ),
             ],
           ),
           child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.onPressed,
-              borderRadius: BorderRadius.circular(18),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Center(
-                  child: Text(
-                    widget.label,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(18),
+                splashColor: Colors.white.withOpacity(0.3),
+                highlightColor: Colors.white.withOpacity(0.1),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Center(
+                    child: Text(
+                      widget.label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
           ),
         ),
       ),

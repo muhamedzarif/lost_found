@@ -237,6 +237,7 @@ class _ReportScreenState extends State<ReportScreen>
                 child: FadeTransition(
                   opacity: _fadeAnimation,
                   child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
@@ -259,15 +260,10 @@ class _ReportScreenState extends State<ReportScreen>
                           title: 'Lost Item',
                           subtitle: 'Report something you lost',
                           icon: Icons.search_rounded,
-                          gradientColors: isDark
-                              ? const [
-                                  Color(0xFF6B4158),
-                                  Color(0xFF7D5368),
-                                ]
-                              : const [
-                                  Color(0xFFFFB6D9),
-                                  Color(0xFFFFD6E8),
-                                ],
+                          gradientColors: const [
+                            Color(0xFFE74C3C),
+                            Color(0xFFC0392B),
+                          ],
                           isExpanded: selectedType == 'lost',
                           onTap: () {
                             setState(() {
@@ -295,15 +291,10 @@ class _ReportScreenState extends State<ReportScreen>
                           title: 'Found Item',
                           subtitle: 'Report something you found',
                           icon: Icons.check_circle_rounded,
-                          gradientColors: isDark
-                              ? const [
-                                  Color(0xFF4A6B5C),
-                                  Color(0xFF5C7D6E),
-                                ]
-                              : const [
-                                  Color(0xFFB8E8D4),
-                                  Color(0xFFD4F1E8),
-                                ],
+                          gradientColors: const [
+                            Color(0xFF27AE60),
+                            Color(0xFF229954),
+                          ],
                           isExpanded: selectedType == 'found',
                           onTap: () {
                             setState(() {

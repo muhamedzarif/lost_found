@@ -13,9 +13,11 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
+  late AnimationController _staggerController;
   late Animation<double> _fadeAnimation;
+  late List<Animation<double>> _cardAnimations;
 
   @override
   void initState() {
@@ -24,16 +26,39 @@ class _HomeScreenState extends State<HomeScreen>
       duration: const Duration(milliseconds: 800),
       vsync: this,
     );
+    _staggerController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+    
     _fadeAnimation = CurvedAnimation(
       parent: _controller,
       curve: Curves.easeIn,
     );
+    
+    // Create staggered animations for cards
+    _cardAnimations = List.generate(
+      3,
+      (index) => Tween<double>(begin: 0.0, end: 1.0).animate(
+        CurvedAnimation(
+          parent: _staggerController,
+          curve: Interval(
+            index * 0.2,
+            0.6 + (index * 0.2),
+            curve: Curves.easeOutCubic,
+          ),
+        ),
+      ),
+    );
+    
     _controller.forward();
+    _staggerController.forward();
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _staggerController.dispose();
     super.dispose();
   }
 
@@ -115,6 +140,7 @@ class _HomeScreenState extends State<HomeScreen>
                 // Main Content
                 Expanded(
                   child: SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
@@ -150,16 +176,19 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                           child: Column(
                             children: [
-                              Icon(
-                                Icons.park,
-                                size: 60,
-                                color: isDark
-                                    ? const Color(0xFFB8A9E8)
-                                    : const Color(0xFF9B7DC6),
+                              Hero(
+                                tag: 'park_icon',
+                                child: Icon(
+                                  Icons.search,
+                                  size: 60,
+                                  color: isDark
+                                      ? const Color(0xFFB8A9E8)
+                                      : const Color(0xFF9B7DC6),
+                                ),
                               ),
                               const SizedBox(height: 16),
                               Text(
-                                'Lofi Park',
+                                'Search Hub',
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.bold,
@@ -170,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen>
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'A peaceful place to reunite',
+                                'Helping you find what matters most',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: isDark
@@ -183,49 +212,93 @@ class _HomeScreenState extends State<HomeScreen>
                           ),
                         ),
                         const SizedBox(height: 32),
-                        // Action Cards
-                        _LofiActionCard(
-                          icon: Icons.edit_note_rounded,
-                          title: 'Report Item',
-                          description: 'Lost or found something?',
-                          gradientColors: isDark
-                              ? const [
-                                  Color(0xFF6B4158),
-                                  Color(0xFF7D5368),
-                                ]
-                              : const [
-                                  Color(0xFFFFB6D9),
-                                  Color(0xFFFFD6E8),
-                                ],
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ReportScreen(),
+                        // Action Cards with staggered animation
+                        AnimatedBuilder(
+                          animation: _cardAnimations[0],
+                          builder: (context, child) {
+                            return Opacity(
+                              opacity: _cardAnimations[0].value,
+                              child: Transform.translate(
+                                offset: Offset(0, 30 * (1 - _cardAnimations[0].value)),
+                                child: _LofiActionCard(
+                                  icon: Icons.edit_note_rounded,
+                                  title: 'Report Item',
+                                  description: 'Lost or found something?',
+                                  gradientColors: const [
+                                    Color(0xFF8E44AD),
+                                    Color(0xFF9B59B6),
+                                  ],
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      PageRouteBuilder(
+                                        pageBuilder: (context, animation, secondaryAnimation) =>
+                                            const ReportScreen(),
+                                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                          const begin = Offset(1.0, 0.0);
+                                          const end = Offset.zero;
+                                          const curve = Curves.easeInOutCubic;
+                                          var tween = Tween(begin: begin, end: end)
+                                              .chain(CurveTween(curve: curve));
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: FadeTransition(
+                                              opacity: animation,
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                        transitionDuration: const Duration(milliseconds: 400),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             );
                           },
                         ),
                         const SizedBox(height: 16),
                         // View Items Card
-                        _LofiActionCard(
-                          icon: Icons.inventory_2_outlined,
-                          title: 'View All Items',
-                          description: 'Browse lost and found items',
-                          gradientColors: isDark
-                              ? const [
-                                  Color(0xFF4A6B5C),
-                                  Color(0xFF5C7D6E),
-                                ]
-                              : const [
-                                  Color(0xFFB8E8D4),
-                                  Color(0xFFD4F1E8),
-                                ],
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => const ItemsScreen(initialFilter: 'all'),
+                        AnimatedBuilder(
+                          animation: _cardAnimations[1],
+                          builder: (context, child) {
+                            return Opacity(
+                              opacity: _cardAnimations[1].value,
+                              child: Transform.translate(
+                                offset: Offset(0, 30 * (1 - _cardAnimations[1].value)),
+                                child: _LofiActionCard(
+                                  icon: Icons.inventory_2_outlined,
+                                  title: 'View All Items',
+                                  description: 'Browse lost and found items',
+                                  gradientColors: const [
+                                    Color(0xFF3498DB),
+                                    Color(0xFF2980B9),
+                                  ],
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      PageRouteBuilder(
+                                        pageBuilder: (context, animation, secondaryAnimation) =>
+                                            const ItemsScreen(initialFilter: 'all'),
+                                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                          const begin = Offset(1.0, 0.0);
+                                          const end = Offset.zero;
+                                          const curve = Curves.easeInOutCubic;
+                                          var tween = Tween(begin: begin, end: end)
+                                              .chain(CurveTween(curve: curve));
+                                          return SlideTransition(
+                                            position: animation.drive(tween),
+                                            child: FadeTransition(
+                                              opacity: animation,
+                                              child: child,
+                                            ),
+                                          );
+                                        },
+                                        transitionDuration: const Duration(milliseconds: 400),
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             );
                           },
@@ -313,24 +386,65 @@ class _LofiActionCard extends StatefulWidget {
   State<_LofiActionCard> createState() => _LofiActionCardState();
 }
 
-class _LofiActionCardState extends State<_LofiActionCard> {
+class _LofiActionCardState extends State<_LofiActionCard>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        transform: Matrix4.identity()
-          ..translate(0.0, _isHovered ? -8.0 : 0.0),
-        child: GestureDetector(
-          onTap: widget.onTap,
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOutCubic,
+              transform: Matrix4.identity()
+                ..translate(0.0, _isHovered ? -8.0 : 0.0),
+              child: GestureDetector(
+                onTapDown: (_) => _scaleController.forward(),
+                onTapUp: (_) {
+                  _scaleController.reverse();
+                  Future.delayed(const Duration(milliseconds: 100), () {
+                    widget.onTap();
+                  });
+                },
+                onTapCancel: () => _scaleController.reverse(),
+                child: child,
+              ),
+            ),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: _isHovered
                     ? [
@@ -356,7 +470,7 @@ class _LofiActionCardState extends State<_LofiActionCard> {
                 ),
               ],
             ),
-            child: Row(
+          child: Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(16),
@@ -407,7 +521,6 @@ class _LofiActionCardState extends State<_LofiActionCard> {
                   size: 20,
                 ),
               ],
-            ),
           ),
         ),
       ),
@@ -436,8 +549,24 @@ class _LogoutButtonState extends State<_LogoutButton> {
             if (context.mounted) {
               Navigator.pushReplacement(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const LoginScreen(),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const LoginScreen(),
+                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                    const begin = Offset(-1.0, 0.0);
+                    const end = Offset.zero;
+                    const curve = Curves.easeInOutCubic;
+                    var tween = Tween(begin: begin, end: end)
+                        .chain(CurveTween(curve: curve));
+                    return SlideTransition(
+                      position: animation.drive(tween),
+                      child: FadeTransition(
+                        opacity: animation,
+                        child: child,
+                      ),
+                    );
+                  },
+                  transitionDuration: const Duration(milliseconds: 500),
                 ),
               );
             }

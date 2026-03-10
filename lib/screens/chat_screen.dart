@@ -262,16 +262,31 @@ class _ChatScreenState extends State<ChatScreen>
                             )
                           : ListView.builder(
                               padding: const EdgeInsets.all(16),
+                              physics: const BouncingScrollPhysics(),
                               itemCount: messages.length,
                               itemBuilder: (context, index) {
                                 final msg = messages[index];
                                 final isMe = msg['user_email'] ==
                                     Supabase.instance.client.auth.currentUser!
                                         .email;
-                                return _MessageBubble(
-                                  message: msg['message'],
-                                  email: msg['user_email'],
-                                  isMe: isMe,
+                                return TweenAnimationBuilder<double>(
+                                  duration: Duration(milliseconds: 200 + (index * 50)),
+                                  tween: Tween(begin: 0.0, end: 1.0),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, value, child) {
+                                    return Opacity(
+                                      opacity: value,
+                                      child: Transform.translate(
+                                        offset: Offset(isMe ? 30 * (1 - value) : -30 * (1 - value), 0),
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: _MessageBubble(
+                                    message: msg['message'],
+                                    email: msg['user_email'],
+                                    isMe: isMe,
+                                  ),
                                 );
                               },
                             ),
@@ -478,21 +493,57 @@ class _SendButton extends StatefulWidget {
   State<_SendButton> createState() => _SendButtonState();
 }
 
-class _SendButtonState extends State<_SendButton> {
+class _SendButtonState extends State<_SendButton>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 150),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.85).animate(
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 250),
-        transform: Matrix4.identity()
-          ..scale(_isHovered ? 1.1 : 1.0),
-        child: GestureDetector(
-          onTap: widget.onPressed,
-          child: Container(
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value * (_isHovered ? 1.1 : 1.0),
+            child: GestureDetector(
+              onTapDown: (_) => _scaleController.forward(),
+              onTapUp: (_) {
+                _scaleController.reverse();
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  widget.onPressed();
+                });
+              },
+              onTapCancel: () => _scaleController.reverse(),
+              child: child,
+            ),
+          );
+        },
+        child: Container(
             width: 50,
             height: 50,
             decoration: BoxDecoration(
@@ -521,11 +572,10 @@ class _SendButtonState extends State<_SendButton> {
                 ),
               ],
             ),
-            child: const Icon(
-              Icons.send_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
+          child: const Icon(
+            Icons.send_rounded,
+            color: Colors.white,
+            size: 22,
           ),
         ),
       ),
