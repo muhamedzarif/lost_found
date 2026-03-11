@@ -67,20 +67,22 @@ class _LoginScreenState extends State<LoginScreen>
             pageBuilder: (context, animation, secondaryAnimation) =>
                 const SearchAnimationScreen(),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              const begin = Offset(1.0, 0.0);
+              const begin = Offset(-1.0, -1.0);
               const end = Offset.zero;
-              const curve = Curves.easeInOutCubic;
+              const curve = Curves.easeOutCubic;
               var tween = Tween(begin: begin, end: end)
                   .chain(CurveTween(curve: curve));
+              var fadeTween = Tween<double>(begin: 0.0, end: 1.0)
+                  .chain(CurveTween(curve: Curves.easeIn));
               return SlideTransition(
                 position: animation.drive(tween),
                 child: FadeTransition(
-                  opacity: animation,
+                  opacity: animation.drive(fadeTween),
                   child: child,
                 ),
               );
             },
-            transitionDuration: const Duration(milliseconds: 500),
+            transitionDuration: const Duration(milliseconds: 700),
           ),
         );
       }
@@ -175,43 +177,55 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Search icon with Hero animation
+                        // Search icon with Hero animation and 3D rotation
                         Hero(
                           tag: 'park_icon',
-                          child: Container(
-                            padding: const EdgeInsets.all(30),
-                            decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: isDark
-                                  ? [
-                                      const Color(0xFF4A3D5C).withOpacity(0.5),
-                                      const Color(0xFF5B4670).withOpacity(0.5),
-                                    ]
-                                  : [
-                                      const Color(0xFFB8A9E8).withOpacity(0.3),
-                                      const Color(0xFFE8B8D5).withOpacity(0.3),
-                                    ],
-                            ),
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: isDark
-                                    ? const Color(0xFFB8A9E8).withOpacity(0.15)
-                                    : const Color(0xFFB8A9E8).withOpacity(0.3),
-                                blurRadius: 40,
-                                offset: const Offset(0, 15),
+                          child: TweenAnimationBuilder<double>(
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 2000),
+                            builder: (context, value, child) {
+                              return Transform(
+                                alignment: Alignment.center,
+                                transform: Matrix4.identity()
+                                  ..setEntry(3, 2, 0.001) // perspective
+                                  ..rotateY(value * 6.28), // full rotation
+                                child: Container(
+                                  padding: const EdgeInsets.all(30),
+                                  decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: isDark
+                                        ? [
+                                            const Color(0xFF4A3D5C).withOpacity(0.5),
+                                            const Color(0xFF5B4670).withOpacity(0.5),
+                                          ]
+                                        : [
+                                            const Color(0xFFB8A9E8).withOpacity(0.3),
+                                            const Color(0xFFE8B8D5).withOpacity(0.3),
+                                          ],
+                                  ),
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: isDark
+                                          ? const Color(0xFFB8A9E8).withOpacity(0.15)
+                                          : const Color(0xFFB8A9E8).withOpacity(0.3),
+                                      blurRadius: 40,
+                                      offset: const Offset(0, 15),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.search_outlined,
+                                  size: 80,
+                                  color: isDark
+                                      ? const Color(0xFFD4C5F9)
+                                      : const Color(0xFF9B7DC6),
+                                ),
                               ),
-                            ],
-                          ),
-                          child: Icon(
-                            Icons.search_outlined,
-                            size: 80,
-                            color: isDark
-                                ? const Color(0xFFD4C5F9)
-                                : const Color(0xFF9B7DC6),
+                              );
+                            },
                           ),
                         ),
-                      ),
                         const SizedBox(height: 32),
                         // Title with lofi vibes
                         ShaderMask(
@@ -506,8 +520,12 @@ class _LofiButtonState extends State<_LofiButton>
       child: AnimatedBuilder(
         animation: _scaleAnimation,
         builder: (context, child) {
-          return Transform.scale(
-            scale: _scaleAnimation.value * (_isHovered ? 1.03 : 1.0),
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.002) // perspective
+              ..rotateX(_isHovered ? -0.05 : 0) // 3D tilt on hover
+              ..scale(_scaleAnimation.value * (_isHovered ? 1.03 : 1.0)),
             child: GestureDetector(
               onTapDown: (_) => _scaleController.forward(),
               onTapUp: (_) {

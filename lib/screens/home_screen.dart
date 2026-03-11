@@ -281,7 +281,7 @@ class _HomeScreenState extends State<HomeScreen>
                                         pageBuilder: (context, animation, secondaryAnimation) =>
                                             const ItemsScreen(initialFilter: 'all'),
                                         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                          const begin = Offset(1.0, 0.0);
+                                          const begin = Offset(-1.0, 0.0);
                                           const end = Offset.zero;
                                           const curve = Curves.easeInOutCubic;
                                           var tween = Tween(begin: begin, end: end)

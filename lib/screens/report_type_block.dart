@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'dart:typed_data';
 
 class ReportTypeBlock extends StatefulWidget {
@@ -13,7 +14,9 @@ class ReportTypeBlock extends StatefulWidget {
   final TextEditingController titleController;
   final TextEditingController descController;
   final TextEditingController locationController;
-  final File? selectedImage;
+  final TextEditingController? lastSeenController;
+  final XFile? selectedImage;
+  final PlatformFile? selectedImageFile;
   final VoidCallback onPickImage;
   final VoidCallback onRemoveImage;
   final VoidCallback? onSubmit;
@@ -32,7 +35,9 @@ class ReportTypeBlock extends StatefulWidget {
     required this.titleController,
     required this.descController,
     required this.locationController,
+    this.lastSeenController,
     required this.selectedImage,
+    required this.selectedImageFile,
     required this.onPickImage,
     required this.onRemoveImage,
     required this.onSubmit,
@@ -242,6 +247,16 @@ class _ReportTypeBlockState extends State<ReportTypeBlock>
                               icon: Icons.location_on_outlined,
                               hint: 'Where was it ${widget.type}?',
                             ),
+                            // Last Seen field (only for lost items)
+                            if (widget.lastSeenController != null) ...[
+                              const SizedBox(height: 16),
+                              _buildTextField(
+                                controller: widget.lastSeenController!,
+                                label: 'Last Seen (Optional)',
+                                icon: Icons.access_time_rounded,
+                                hint: 'When/where did you last see it?',
+                              ),
+                            ],
                             const SizedBox(height: 20),
                             // Photo section
                             Text(
@@ -327,6 +342,58 @@ class _ReportTypeBlockState extends State<ReportTypeBlock>
   }
 
   Widget _buildImagePicker() {
+    // Check if we have an image from file_picker (desktop)
+    if (widget.selectedImageFile != null) {
+      return Stack(
+        children: [
+          Container(
+            height: 180,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.5),
+                width: 2,
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: widget.selectedImageFile!.bytes != null
+                  ? Image.memory(
+                      widget.selectedImageFile!.bytes!,
+                      fit: BoxFit.cover,
+                    )
+                  : Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+            ),
+          ),
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: widget.onRemoveImage,
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    // Check if we have an image from image_picker (mobile)
     if (widget.selectedImage != null) {
       return Stack(
         children: [
@@ -384,6 +451,7 @@ class _ReportTypeBlockState extends State<ReportTypeBlock>
       );
     }
 
+    // No image selected - show picker button
     return GestureDetector(
       onTap: widget.onPickImage,
       child: Container(

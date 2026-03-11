@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'chat_screen.dart';
+import 'item_detail_screen.dart';
 import 'dart:convert';
 
 class ItemsScreen extends StatefulWidget {
@@ -13,16 +13,17 @@ class ItemsScreen extends StatefulWidget {
 
 class _ItemsScreenState extends State<ItemsScreen>
     with SingleTickerProviderStateMixin {
-  List items = [];
+  List lostItems = [];
+  List foundItems = [];
   bool loading = true;
-  late String filter;
+  bool showLostFolder = true;
+  bool showFoundFolder = true;
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
-    filter = widget.initialFilter;
     _controller = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -44,14 +45,14 @@ class _ItemsScreenState extends State<ItemsScreen>
   Future<void> fetchItems() async {
     setState(() => loading = true);
     try {
-      final query = Supabase.instance.client.from('items').select();
-
-      final data = filter == 'all'
-          ? await query.order('created_at', ascending: false)
-          : await query.eq('type', filter).order('created_at', ascending: false);
+      final allData = await Supabase.instance.client
+          .from('items')
+          .select()
+          .order('created_at', ascending: false);
 
       setState(() {
-        items = data;
+        lostItems = allData.where((item) => item['type'] == 'lost').toList();
+        foundItems = allData.where((item) => item['type'] == 'found').toList();
         loading = false;
       });
     } catch (e) {
@@ -146,14 +147,6 @@ class _ItemsScreenState extends State<ItemsScreen>
                         ),
                       ),
                     ),
-                    _FilterButton(
-                      currentFilter: filter,
-                      onFilterChanged: (value) {
-                        setState(() => filter = value);
-                        fetchItems();
-                      },
-                      isDark: isDark,
-                    ),
                   ],
                 ),
               ),
@@ -176,93 +169,146 @@ class _ItemsScreenState extends State<ItemsScreen>
                             ),
                           ),
                         )
-                      : items.isEmpty
-                          ? Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.inventory_2_outlined,
-                                    size: 80,
-                                    color: isDark
-                                        ? const Color(0xFFB8A9E8)
-                                            .withOpacity(0.3)
-                                        : const Color(0xFF9B7DC6)
-                                            .withOpacity(0.3),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No items found',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: isDark
-                                          ? const Color(0xFFB8A9E8)
-                                              .withOpacity(0.7)
-                                          : const Color(0xFF9B7DC6)
-                                              .withOpacity(0.6),
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            )
-                          : RefreshIndicator(
-                              onRefresh: fetchItems,
-                              color: const Color(0xFFB8A9E8),
-                              backgroundColor: Colors.white,
-                              child: ListView.builder(
-                                physics: const BouncingScrollPhysics(),
-                                padding: const EdgeInsets.all(16),
-                                itemCount: items.length,
-                                itemBuilder: (context, index) {
-                                  final item = items[index];
-                                  return TweenAnimationBuilder<double>(
-                                    duration: Duration(milliseconds: 300 + (index * 100)),
-                                    tween: Tween(begin: 0.0, end: 1.0),
-                                    curve: Curves.easeOutCubic,
-                                    builder: (context, value, child) {
-                                      return Opacity(
-                                        opacity: value,
-                                        child: Transform.translate(
-                                          offset: Offset(0, 30 * (1 - value)),
-                                          child: child,
-                                        ),
-                                      );
-                                    },
-                                    child: _LofiItemCard(
-                                      item: item,
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          PageRouteBuilder(
-                                            pageBuilder: (context, animation, secondaryAnimation) =>
-                                                ChatScreen(
-                                              itemId: item['id'].toString(),
-                                              itemTitle: item['title'] ?? 'Chat',
-                                            ),
-                                            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                              const begin = Offset(1.0, 0.0);
-                                              const end = Offset.zero;
-                                              const curve = Curves.easeInOutCubic;
-                                              var tween = Tween(begin: begin, end: end)
-                                                  .chain(CurveTween(curve: curve));
-                                              return SlideTransition(
-                                                position: animation.drive(tween),
-                                                child: FadeTransition(
-                                                  opacity: animation,
-                                                  child: child,
-                                                ),
-                                              );
-                                            },
-                                            transitionDuration: const Duration(milliseconds: 400),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  );
-                                },
-                              ),
+                      : RefreshIndicator(
+                          onRefresh: fetchItems,
+                          color: const Color(0xFFB8A9E8),
+                          backgroundColor: Colors.white,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              children: [
+                                // Lost Items Folder
+                                _FolderSection(
+                                  title: 'Lost Items',
+                                  icon: Icons.search_rounded,
+                                  color: const Color(0xFFFF6B6B),
+                                  itemCount: lostItems.length,
+                                  isExpanded: showLostFolder,
+                                  onToggle: () {
+                                    setState(() => showLostFolder = !showLostFolder);
+                                  },
+                                  isDark: isDark,
+                                  child: showLostFolder
+                                      ? Column(
+                                          children: lostItems.asMap().entries.map((entry) {
+                                            final index = entry.key;
+                                            final item = entry.value;
+                                            return TweenAnimationBuilder<double>(
+                                              duration: Duration(milliseconds: 300 + (index * 100)),
+                                              tween: Tween(begin: 0.0, end: 1.0),
+                                              curve: Curves.easeOutCubic,
+                                              builder: (context, value, child) {
+                                                return Opacity(
+                                                  opacity: value,
+                                                  child: Transform.translate(
+                                                    offset: Offset(0, 30 * (1 - value)),
+                                                    child: child,
+                                                  ),
+                                                );
+                                              },
+                                              child: _LofiItemCard(
+                                                item: item,
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    PageRouteBuilder(
+                                                      pageBuilder: (context, animation, secondaryAnimation) =>
+                                                          ItemDetailScreen(
+                                                        item: item,
+                                                      ),
+                                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                                        const begin = Offset(1.0, 0.0);
+                                                        const end = Offset.zero;
+                                                        const curve = Curves.easeInOutCubic;
+                                                        var tween = Tween(begin: begin, end: end)
+                                                            .chain(CurveTween(curve: curve));
+                                                        return SlideTransition(
+                                                          position: animation.drive(tween),
+                                                          child: FadeTransition(
+                                                            opacity: animation,
+                                                            child: child,
+                                                          ),
+                                                        );
+                                                      },
+                                                      transitionDuration: const Duration(milliseconds: 400),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            );
+                                          }).toList(),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                                const SizedBox(height: 20),
+                                // Found Items Folder
+                                _FolderSection(
+                                  title: 'Found Items',
+                                  icon: Icons.check_circle_rounded,
+                                  color: const Color(0xFF51CF66),
+                                  itemCount: foundItems.length,
+                                  isExpanded: showFoundFolder,
+                                  onToggle: () {
+                                    setState(() => showFoundFolder = !showFoundFolder);
+                                  },
+                                  isDark: isDark,
+                                  child: showFoundFolder
+                                      ? Column(
+                                          children: foundItems.asMap().entries.map((entry) {
+                                            final index = entry.key;
+                                            final item = entry.value;
+                                            return TweenAnimationBuilder<double>(
+                                              duration: Duration(milliseconds: 300 + (index * 100)),
+                                              tween: Tween(begin: 0.0, end: 1.0),
+                                              curve: Curves.easeOutCubic,
+                                              builder: (context, value, child) {
+                                                return Opacity(
+                                                  opacity: value,
+                                                  child: Transform.translate(
+                                                    offset: Offset(0, 30 * (1 - value)),
+                                                    child: child,
+                                                  ),
+                                                );
+                                              },
+                                              child: _LofiItemCard(
+                                                item: item,
+                                                onTap: () {
+                                                  Navigator.push(
+                                                    context,
+                                                    PageRouteBuilder(
+                                                      pageBuilder: (context, animation, secondaryAnimation) =>
+                                                          ItemDetailScreen(
+                                                        item: item,
+                                                      ),
+                                                      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                                        const begin = Offset(1.0, 0.0);
+                                                        const end = Offset.zero;
+                                                        const curve = Curves.easeInOutCubic;
+                                                        var tween = Tween(begin: begin, end: end)
+                                                            .chain(CurveTween(curve: curve));
+                                                        return SlideTransition(
+                                                          position: animation.drive(tween),
+                                                          child: FadeTransition(
+                                                            opacity: animation,
+                                                            child: child,
+                                                          ),
+                                                        );
+                                                      },
+                                                      transitionDuration: const Duration(milliseconds: 400),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            );
+                                          }).toList(),
+                                        )
+                                      : const SizedBox.shrink(),
+                                ),
+                              ],
                             ),
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -317,34 +363,34 @@ class _LofiItemCardState extends State<_LofiItemCard>
   Widget build(BuildContext context) {
     final isLost = widget.item['type'] == 'lost';
     final cardGradient = isLost
-        ? [const Color(0xFFFFB6D9), const Color(0xFFFFD6E8)]
-        : [const Color(0xFFB8E8D4), const Color(0xFFD4F1E8)];
+        ? [const Color(0xFFFF6B6B), const Color(0xFFFF8787)]
+        : [const Color(0xFF51CF66), const Color(0xFF69DB7C)];
 
     return AnimatedBuilder(
       animation: _scaleAnimation,
       builder: (context, child) {
-        return Transform.scale(
-          scale: _scaleAnimation.value,
-          child: MouseRegion(
-            onEnter: (_) => setState(() => _isHovered = true),
-            onExit: (_) => setState(() => _isHovered = false),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOutCubic,
-              transform: Matrix4.identity()
-                ..translate(0.0, _isHovered ? -6.0 : 0.0),
-              margin: const EdgeInsets.only(bottom: 16),
-              child: GestureDetector(
-                onTapDown: (_) => _scaleController.forward(),
-                onTapUp: (_) {
-                  _scaleController.reverse();
-                  Future.delayed(const Duration(milliseconds: 100), () {
-                    widget.onTap();
-                  });
-                },
-                onTapCancel: () => _scaleController.reverse(),
-                child: child,
-              ),
+        return MouseRegion(
+          onEnter: (_) => setState(() => _isHovered = true),
+          onExit: (_) => setState(() => _isHovered = false),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001) // perspective
+              ..rotateX(_isHovered ? -0.02 : 0) // 3D tilt
+              ..translate(0.0, _isHovered ? -8.0 : 0.0)
+              ..scale(_scaleAnimation.value),
+            margin: const EdgeInsets.only(bottom: 16),
+            child: GestureDetector(
+              onTapDown: (_) => _scaleController.forward(),
+              onTapUp: (_) {
+                _scaleController.reverse();
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  widget.onTap();
+                });
+              },
+              onTapCancel: () => _scaleController.reverse(),
+              child: child,
             ),
           ),
         );
@@ -449,12 +495,13 @@ class _LofiItemCardState extends State<_LofiItemCard>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        widget.item['description'] ?? '',
+                        widget.item['description'] ?? 'No description provided',
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.white.withOpacity(0.9),
+                          height: 1.4,
                         ),
-                        maxLines: 2,
+                        maxLines: 4,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 10),
@@ -504,22 +551,34 @@ class _LofiItemCardState extends State<_LofiItemCard>
   }
 }
 
-class _FilterButton extends StatefulWidget {
-  final String currentFilter;
-  final Function(String) onFilterChanged;
+// Folder Section Widget
+class _FolderSection extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final int itemCount;
+  final bool isExpanded;
+  final VoidCallback onToggle;
   final bool isDark;
+  final Widget child;
 
-  const _FilterButton({
-    required this.currentFilter,
-    required this.onFilterChanged,
+  const _FolderSection({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.itemCount,
+    required this.isExpanded,
+    required this.onToggle,
     required this.isDark,
+    required this.child,
   });
 
   @override
-  State<_FilterButton> createState() => _FilterButtonState();
+  State<_FolderSection> createState() => _FolderSectionState();
 }
 
-class _FilterButtonState extends State<_FilterButton> {
+class _FolderSectionState extends State<_FolderSection>
+    with SingleTickerProviderStateMixin {
   bool _isHovered = false;
 
   @override
@@ -527,139 +586,117 @@ class _FilterButtonState extends State<_FilterButton> {
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
-      child: PopupMenuButton<String>(
-        initialValue: widget.currentFilter,
-        onSelected: widget.onFilterChanged,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        color: widget.isDark
-            ? const Color(0xFF3D2F4D).withOpacity(0.95)
-            : Colors.white.withOpacity(0.95),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: _isHovered
-                  ? [
-                      const Color(0xFFB8A9E8),
-                      const Color(0xFFD1A9E8),
-                    ]
-                  : widget.isDark
-                      ? [
-                          const Color(0xFF3D2F4D).withOpacity(0.8),
-                          const Color(0xFF4A3D5C).withOpacity(0.8),
-                        ]
-                      : [
-                          Colors.white.withOpacity(0.7),
-                          Colors.white.withOpacity(0.6),
-                        ],
-            ),
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(
-              color: widget.isDark
-                  ? const Color(0xFFB8A9E8).withOpacity(0.3)
-                  : Colors.white.withOpacity(0.5),
-              width: 1.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              Icon(
-                Icons.filter_list_rounded,
-                color: _isHovered
-                    ? Colors.white
-                    : (widget.isDark
-                        ? const Color(0xFFD4C5F9)
-                        : const Color(0xFF9B7DC6)),
-                size: 20,
-              ),
-              const SizedBox(width: 6),
-              Text(
-                _getFilterLabel(widget.currentFilter),
-                style: TextStyle(
-                  color: _isHovered
-                      ? Colors.white
-                      : (widget.isDark
-                          ? const Color(0xFFD4C5F9)
-                          : const Color(0xFF9B7DC6)),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        transform: Matrix4.identity()
+          ..setEntry(3, 2, 0.001) // perspective
+          ..rotateX(_isHovered ? -0.015 : 0) // subtle 3D tilt
+          ..translate(0.0, _isHovered ? -4.0 : 0.0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              widget.color.withOpacity(_isHovered ? 0.3 : 0.2),
+              widget.color.withOpacity(_isHovered ? 0.2 : 0.1),
             ],
           ),
-        ),
-        itemBuilder: (context) => [
-          _buildMenuItem('all', 'All Items', Icons.inventory_2_outlined),
-          _buildMenuItem('lost', 'Lost Items', Icons.search_rounded),
-          _buildMenuItem('found', 'Found Items', Icons.check_circle_rounded),
-        ],
-      ),
-    );
-  }
-
-  PopupMenuItem<String> _buildMenuItem(
-      String value, String label, IconData icon) {
-    final isSelected = widget.currentFilter == value;
-    final isDark = widget.isDark;
-    return PopupMenuItem(
-      value: value,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        decoration: BoxDecoration(
-          gradient: isSelected
-              ? LinearGradient(
-                  colors: [
-                    const Color(0xFFB8A9E8).withOpacity(0.2),
-                    const Color(0xFFD1A9E8).withOpacity(0.2),
-                  ],
-                )
-              : null,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected
-                  ? (isDark
-                      ? const Color(0xFFD4C5F9)
-                      : const Color(0xFF9B7DC6))
-                  : (isDark
-                      ? const Color(0xFFB8A9E8).withOpacity(0.5)
-                      : const Color(0xFF9B7DC6).withOpacity(0.5)),
-              size: 20,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: widget.color.withOpacity(0.5),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: widget.color.withOpacity(_isHovered ? 0.25 : 0.15),
+              blurRadius: _isHovered ? 20 : 12,
+              offset: Offset(0, _isHovered ? 8 : 6),
             ),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: TextStyle(
-                color: isSelected
-                    ? (isDark
-                        ? const Color(0xFFD4C5F9)
-                        : const Color(0xFF9B7DC6))
-                    : (isDark
-                        ? const Color(0xFFB8A9E8).withOpacity(0.7)
-                        : const Color(0xFF9B7DC6).withOpacity(0.7)),
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ],
+        ),
+        child: Column(
+          children: [
+            InkWell(
+              onTap: widget.onToggle,
+              borderRadius: BorderRadius.circular(20),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: widget.color.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: widget.color.withOpacity(0.5),
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        widget.icon,
+                        color: widget.color,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.title,
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: widget.isDark
+                                  ? Colors.white
+                                  : const Color(0xFF2D2438),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${widget.itemCount} item${widget.itemCount != 1 ? "s" : ""}',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: widget.isDark
+                                  ? Colors.white.withOpacity(0.7)
+                                  : const Color(0xFF2D2438).withOpacity(0.6),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: widget.isExpanded ? 0.5 : 0.0,
+                      duration: const Duration(milliseconds: 300),
+                      child: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        color: widget.color,
+                        size: 32,
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ),
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 300),
+              crossFadeState: widget.isExpanded
+                  ? CrossFadeState.showFirst
+                  : CrossFadeState.showSecond,
+              firstChild: Padding(
+                padding: const EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  bottom: 16,
+                  top: 8,
+                ),
+                child: widget.child,
+              ),
+              secondChild: const SizedBox.shrink(),
             ),
           ],
         ),
       ),
     );
-  }
-
-  String _getFilterLabel(String filter) {
-    switch (filter) {
-      case 'lost':
-        return 'Lost';
-      case 'found':
-        return 'Found';
-      default:
-        return 'All';
-    }
   }
 }

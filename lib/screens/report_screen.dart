@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
-import 'dart:io';
 import 'report_type_block.dart';
 
 class ReportScreen extends StatefulWidget {
@@ -16,12 +18,15 @@ class _ReportScreenState extends State<ReportScreen>
   final lostTitleController = TextEditingController();
   final lostDescController = TextEditingController();
   final lostLocationController = TextEditingController();
-  File? _lostImage;
+  final lostLastSeenController = TextEditingController();
+  XFile? _lostImage;
+  PlatformFile? _lostImageFile; // For desktop platforms
   
   final foundTitleController = TextEditingController();
   final foundDescController = TextEditingController();
   final foundLocationController = TextEditingController();
-  File? _foundImage;
+  XFile? _foundImage;
+  PlatformFile? _foundImageFile; // For desktop platforms
   
   String? selectedType; // null, 'lost', or 'found'
   bool loading = false;
@@ -49,6 +54,7 @@ class _ReportScreenState extends State<ReportScreen>
     lostTitleController.dispose();
     lostDescController.dispose();
     lostLocationController.dispose();
+    lostLastSeenController.dispose();
     foundTitleController.dispose();
     foundDescController.dispose();
     foundLocationController.dispose();
@@ -57,22 +63,108 @@ class _ReportScreenState extends State<ReportScreen>
 
   Future<void> _pickImage(String type) async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
-      if (image != null) {
-        setState(() {
-          if (type == 'lost') {
-            _lostImage = File(image.path);
-          } else {
-            _foundImage = File(image.path);
+      print('Starting image picker for $type...');
+      
+      // Use file_picker for desktop platforms (Windows, macOS, Linux)
+      if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
+        print('Using file_picker for desktop platform');
+        FilePickerResult? result = await FilePicker.platform.pickFiles(
+          type: FileType.image,
+          allowMultiple: false,
+        );
+        
+        if (result != null && result.files.isNotEmpty) {
+          print('File picker returned: ${result.files.first.path ?? "null"}');
+          setState(() {
+            if (type == 'lost') {
+              _lostImageFile = result.files.first;
+              _lostImage = null;
+            } else {
+              _foundImageFile = result.files.first;
+              _foundImage = null;
+            }
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Image selected successfully! ✓'),
+                backgroundColor: const Color(0xFFB8E8D4),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
           }
-        });
+        } else {
+          print('No file was selected');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('No image selected'),
+                backgroundColor: const Color(0xFFFFB366),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }
+        }
+      } else {
+        // Use image_picker for mobile platforms (Android, iOS)
+        print('Using image_picker for mobile platform');
+        final XFile? image = await _picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 512,
+          maxHeight: 512,
+          imageQuality: 60,
+        );
+        print('Image picker returned: ${image?.path ?? "null"}');
+        if (image != null) {
+          setState(() {
+            if (type == 'lost') {
+              _lostImage = image;
+              _lostImageFile = null;
+            } else {
+              _foundImage = image;
+              _foundImageFile = null;
+            }
+          });
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Image selected successfully! ✓'),
+                backgroundColor: const Color(0xFFB8E8D4),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }
+        } else {
+          print('No image was selected');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('No image selected'),
+                backgroundColor: const Color(0xFFFFB366),
+                behavior: SnackBarBehavior.floating,
+                duration: const Duration(seconds: 2),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
+      print('Error picking image: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -93,6 +185,7 @@ class _ReportScreenState extends State<ReportScreen>
     final descController = type == 'lost' ? lostDescController : foundDescController;
     final locationController = type == 'lost' ? lostLocationController : foundLocationController;
     final selectedImage = type == 'lost' ? _lostImage : _foundImage;
+    final selectedImageFile = type == 'lost' ? _lostImageFile : _foundImageFile;
 
     if (titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -110,20 +203,50 @@ class _ReportScreenState extends State<ReportScreen>
 
     setState(() => loading = true);
     try {
-      String? imageBase64;
-      if (selectedImage != null) {
-        final bytes = await selectedImage.readAsBytes();
-        imageBase64 = base64Encode(bytes);
-      }
-
-      await Supabase.instance.client.from('items').insert({
+      print('Starting submission for $type item...');
+      // Prepare item data
+      final Map<String, dynamic> itemData = {
         'title': titleController.text.trim(),
         'description': descController.text.trim(),
         'location': locationController.text.trim(),
         'type': type,
-        'user_email': Supabase.instance.client.auth.currentUser!.email,
-        'image_data': imageBase64,
-      });
+        'user_email': Supabase.instance.client.auth.currentUser?.email ?? 'unknown',
+      };
+
+      // Add last_seen for lost items only
+      if (type == 'lost' && lostLastSeenController.text.trim().isNotEmpty) {
+        itemData['last_seen'] = lostLastSeenController.text.trim();
+      }
+
+      // Add image data if image was selected
+      if (selectedImageFile != null) {
+        // For desktop platforms using file_picker
+        print('Processing image file: ${selectedImageFile.path}');
+        final bytes = selectedImageFile.bytes;
+        if (bytes != null) {
+          print('Image bytes length: ${bytes.length}');
+          final base64Image = base64Encode(bytes);
+          print('Base64 encoded, length: ${base64Image.length}');
+          itemData['image_data'] = base64Image;
+        } else {
+          print('Warning: bytes is null, cannot encode image');
+        }
+      } else if (selectedImage != null) {
+        // For mobile platforms using image_picker
+        print('Processing image: ${selectedImage.path}');
+        final bytes = await selectedImage.readAsBytes();
+        print('Image bytes length: ${bytes.length}');
+        final base64Image = base64Encode(bytes);
+        print('Base64 encoded, length: ${base64Image.length}');
+        itemData['image_data'] = base64Image;
+      } else {
+        print('No image selected for this submission');
+      }
+
+      print('Inserting into database with data keys: ${itemData.keys}');
+      await Supabase.instance.client.from('items').insert(itemData);
+      print('Database insert successful!');
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -138,12 +261,20 @@ class _ReportScreenState extends State<ReportScreen>
         Navigator.pop(context);
       }
     } catch (e) {
+      print('Error during submission: $e');
       if (mounted) {
+        String errorMessage = 'Failed to submit.';
+        if (e.toString().contains('image_data') || e.toString().contains('last_seen') || e.toString().contains('PGRST')) {
+          errorMessage = '⚠️ Please add missing columns to your database!\n\nGo to Supabase → SQL Editor and run:\nALTER TABLE items ADD COLUMN image_data TEXT;\nALTER TABLE items ADD COLUMN last_seen TEXT;';
+        } else {
+          errorMessage = 'Error: $e';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString()),
+            content: Text(errorMessage),
             backgroundColor: const Color(0xFFFF9EC9),
             behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 6),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -273,11 +404,14 @@ class _ReportScreenState extends State<ReportScreen>
                           titleController: lostTitleController,
                           descController: lostDescController,
                           locationController: lostLocationController,
+                          lastSeenController: lostLastSeenController,
                           selectedImage: _lostImage,
+                          selectedImageFile: _lostImageFile,
                           onPickImage: () => _pickImage('lost'),
                           onRemoveImage: () {
                             setState(() {
                               _lostImage = null;
+                              _lostImageFile = null;
                             });
                           },
                           onSubmit: loading ? null : () => submit('lost'),
@@ -304,11 +438,14 @@ class _ReportScreenState extends State<ReportScreen>
                           titleController: foundTitleController,
                           descController: foundDescController,
                           locationController: foundLocationController,
+                          lastSeenController: null,
                           selectedImage: _foundImage,
+                          selectedImageFile: _foundImageFile,
                           onPickImage: () => _pickImage('found'),
                           onRemoveImage: () {
                             setState(() {
                               _foundImage = null;
+                              _foundImageFile = null;
                             });
                           },
                           onSubmit: loading ? null : () => submit('found'),
