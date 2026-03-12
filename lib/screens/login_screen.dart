@@ -67,22 +67,28 @@ class _LoginScreenState extends State<LoginScreen>
             pageBuilder: (context, animation, secondaryAnimation) =>
                 const SearchAnimationScreen(),
             transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              const begin = Offset(-1.0, -1.0);
-              const end = Offset.zero;
-              const curve = Curves.easeOutCubic;
-              var tween = Tween(begin: begin, end: end)
-                  .chain(CurveTween(curve: curve));
-              var fadeTween = Tween<double>(begin: 0.0, end: 1.0)
-                  .chain(CurveTween(curve: Curves.easeIn));
-              return SlideTransition(
-                position: animation.drive(tween),
-                child: FadeTransition(
-                  opacity: animation.drive(fadeTween),
+              // Smooth fade with gentle scale
+              final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOutCubic,
+                ),
+              );
+              final scaleAnimation = Tween<double>(begin: 0.95, end: 1.0).animate(
+                CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeOutCubic,
+                ),
+              );
+              return FadeTransition(
+                opacity: fadeAnimation,
+                child: ScaleTransition(
+                  scale: scaleAnimation,
                   child: child,
                 ),
               );
             },
-            transitionDuration: const Duration(milliseconds: 700),
+            transitionDuration: const Duration(milliseconds: 500),
           ),
         );
       }
@@ -177,7 +183,7 @@ class _LoginScreenState extends State<LoginScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        // Search icon with Hero animation and 3D rotation
+                        // Magnifying glass icon with Hero animation and 3D rotation
                         Hero(
                           tag: 'park_icon',
                           child: TweenAnimationBuilder<double>(
@@ -215,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen>
                                   ],
                                 ),
                                 child: Icon(
-                                  Icons.search_outlined,
+                                  Icons.search,
                                   size: 80,
                                   color: isDark
                                       ? const Color(0xFFD4C5F9)

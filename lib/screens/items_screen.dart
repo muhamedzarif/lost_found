@@ -218,22 +218,33 @@ class _ItemsScreenState extends State<ItemsScreen>
                                                         item: item,
                                                       ),
                                                       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                                        const begin = Offset(1.0, 0.0);
-                                                        const end = Offset.zero;
-                                                        const curve = Curves.easeInOutCubic;
-                                                        var tween = Tween(begin: begin, end: end)
-                                                            .chain(CurveTween(curve: curve));
+                                                        // Smooth slide up with fade
+                                                        final slideAnimation = Tween<Offset>(
+                                                          begin: const Offset(0.0, 0.1),
+                                                          end: Offset.zero,
+                                                        ).animate(
+                                                          CurvedAnimation(
+                                                            parent: animation,
+                                                            curve: Curves.easeOutCubic,
+                                                          ),
+                                                        );
+                                                        final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                                                          CurvedAnimation(
+                                                            parent: animation,
+                                                            curve: Curves.easeOut,
+                                                          ),
+                                                        );
                                                         return SlideTransition(
-                                                          position: animation.drive(tween),
+                                                          position: slideAnimation,
                                                           child: FadeTransition(
-                                                            opacity: animation,
+                                                            opacity: fadeAnimation,
                                                             child: child,
                                                           ),
                                                         );
                                                       },
-                                                      transitionDuration: const Duration(milliseconds: 400),
+                                                      transitionDuration: const Duration(milliseconds: 300),
                                                     ),
-                                                  );
+                                                  ).then((_) => fetchItems()); // Refresh list when returning
                                                 },
                                               ),
                                             );
@@ -282,22 +293,33 @@ class _ItemsScreenState extends State<ItemsScreen>
                                                         item: item,
                                                       ),
                                                       transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                                        const begin = Offset(1.0, 0.0);
-                                                        const end = Offset.zero;
-                                                        const curve = Curves.easeInOutCubic;
-                                                        var tween = Tween(begin: begin, end: end)
-                                                            .chain(CurveTween(curve: curve));
+                                                        // Smooth slide up with fade
+                                                        final slideAnimation = Tween<Offset>(
+                                                          begin: const Offset(0.0, 0.1),
+                                                          end: Offset.zero,
+                                                        ).animate(
+                                                          CurvedAnimation(
+                                                            parent: animation,
+                                                            curve: Curves.easeOutCubic,
+                                                          ),
+                                                        );
+                                                        final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                                                          CurvedAnimation(
+                                                            parent: animation,
+                                                            curve: Curves.easeOut,
+                                                          ),
+                                                        );
                                                         return SlideTransition(
-                                                          position: animation.drive(tween),
+                                                          position: slideAnimation,
                                                           child: FadeTransition(
-                                                            opacity: animation,
+                                                            opacity: fadeAnimation,
                                                             child: child,
                                                           ),
                                                         );
                                                       },
-                                                      transitionDuration: const Duration(milliseconds: 400),
+                                                      transitionDuration: const Duration(milliseconds: 300),
                                                     ),
-                                                  );
+                                                  ).then((_) => fetchItems()); // Refresh list when returning
                                                 },
                                               ),
                                             );

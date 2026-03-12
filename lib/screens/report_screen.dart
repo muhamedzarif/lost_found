@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform;
+import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -211,6 +211,7 @@ class _ReportScreenState extends State<ReportScreen>
         'location': locationController.text.trim(),
         'type': type,
         'user_email': Supabase.instance.client.auth.currentUser?.email ?? 'unknown',
+        'user_id': Supabase.instance.client.auth.currentUser?.id,
       };
 
       // Add last_seen for lost items only
@@ -222,15 +223,25 @@ class _ReportScreenState extends State<ReportScreen>
       if (selectedImageFile != null) {
         // For desktop platforms using file_picker
         print('Processing image file: ${selectedImageFile.path}');
-        final bytes = selectedImageFile.bytes;
-        if (bytes != null) {
-          print('Image bytes length: ${bytes.length}');
-          final base64Image = base64Encode(bytes);
-          print('Base64 encoded, length: ${base64Image.length}');
-          itemData['image_data'] = base64Image;
+        List<int> bytes;
+        
+        // Try to get bytes from the PlatformFile, or read from path
+        if (selectedImageFile.bytes != null) {
+          bytes = selectedImageFile.bytes!;
+          print('Using bytes from PlatformFile, length: ${bytes.length}');
+        } else if (selectedImageFile.path != null) {
+          // Read file from path (common on desktop platforms)
+          final file = File(selectedImageFile.path!);
+          bytes = await file.readAsBytes();
+          print('Read bytes from file path, length: ${bytes.length}');
         } else {
-          print('Warning: bytes is null, cannot encode image');
+          print('Error: No bytes or path available for selected image');
+          throw Exception('Cannot read image file - no bytes or path available');
         }
+        
+        final base64Image = base64Encode(bytes);
+        print('Base64 encoded, length: ${base64Image.length}');
+        itemData['image_data'] = base64Image;
       } else if (selectedImage != null) {
         // For mobile platforms using image_picker
         print('Processing image: ${selectedImage.path}');
@@ -263,12 +274,7 @@ class _ReportScreenState extends State<ReportScreen>
     } catch (e) {
       print('Error during submission: $e');
       if (mounted) {
-        String errorMessage = 'Failed to submit.';
-        if (e.toString().contains('image_data') || e.toString().contains('last_seen') || e.toString().contains('PGRST')) {
-          errorMessage = '⚠️ Please add missing columns to your database!\n\nGo to Supabase → SQL Editor and run:\nALTER TABLE items ADD COLUMN image_data TEXT;\nALTER TABLE items ADD COLUMN last_seen TEXT;';
-        } else {
-          errorMessage = 'Error: $e';
-        }
+        String errorMessage = 'Error: $e';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),

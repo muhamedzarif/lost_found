@@ -29,69 +29,69 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
   void initState() {
     super.initState();
     
-    // Search movement animation (2.5 seconds, smoother)
+    // Search movement animation (3.5 seconds - slower, more elegant)
     _searchController = AnimationController(
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 3500),
       vsync: this,
     );
     
-    // Magnifying glass fade out (600ms, overlaps with search end)
+    // Magnifying glass fade out (900ms - slower fade)
     _glassController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 900),
       vsync: this,
     );
     
-    // Text reveal animation (1.2 seconds, smoother entrance)
+    // Text reveal animation (1.8 seconds, ultra smooth entrance)
     _textController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
     
-    // Text movement to top-left (1000ms for smoother motion)
+    // Text movement to top-left (1.5 seconds for silky smooth motion)
     _moveController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
     );
     
     _searchAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _searchController,
-        curve: Curves.easeInOutCubic,
+        curve: Curves.easeInOutQuint,
       ),
     );
     
     _rotationAnimation = Tween<double>(begin: 0.0, end: math.pi * 2).animate(
       CurvedAnimation(
         parent: _searchController,
-        curve: Curves.easeInOutCubic,
+        curve: Curves.easeInOutSine,
       ),
     );
     
     _glassOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _glassController,
-        curve: Curves.easeInCubic,
+        curve: Curves.easeInQuad,
       ),
     );
     
     _glassScale = Tween<double>(begin: 1.0, end: 1.5).animate(
       CurvedAnimation(
         parent: _glassController,
-        curve: Curves.easeInCubic,
+        curve: Curves.easeInOutQuad,
       ),
     );
     
     _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _textController,
-        curve: Curves.easeOutCubic,
+        curve: Curves.easeOutQuint,
       ),
     );
     
     _particleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
         parent: _textController,
-        curve: Curves.easeOut,
+        curve: Curves.easeOutQuad,
       ),
     );
     
@@ -102,7 +102,7 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
     ).animate(
       CurvedAnimation(
         parent: _moveController,
-        curve: Curves.easeInOutQuart,
+        curve: Curves.easeInOutQuint,
       ),
     );
     
@@ -110,7 +110,7 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
     _textScale = Tween<double>(begin: 1.0, end: 0.58).animate(
       CurvedAnimation(
         parent: _moveController,
-        curve: Curves.easeInOutQuart,
+        curve: Curves.easeInOutQuint,
       ),
     );
     
@@ -125,14 +125,14 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
     _glassController.forward();
     await _textController.forward();
     
-    // Wait a bit to show the found text
-    await Future.delayed(const Duration(milliseconds: 600));
+    // Wait a bit to show the text
+    await Future.delayed(const Duration(milliseconds: 800));
     
     // Move text to top-left corner smoothly
     await _moveController.forward();
     
     // Small delay before transition
-    await Future.delayed(const Duration(milliseconds: 150));
+    await Future.delayed(const Duration(milliseconds: 300));
     
     // Navigate to home screen with smooth crossfade
     if (mounted) {
@@ -141,18 +141,18 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
           pageBuilder: (context, animation, secondaryAnimation) =>
               const HomeScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // Smooth crossfade with subtle scale transition
+            // Ultra smooth crossfade with subtle scale transition
             final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
               CurvedAnimation(
                 parent: animation,
-                curve: Curves.easeInOutQuart,
+                curve: Curves.easeInOutQuint,
               ),
             );
             
-            final scaleAnimation = Tween<double>(begin: 0.97, end: 1.0).animate(
+            final scaleAnimation = Tween<double>(begin: 0.98, end: 1.0).animate(
               CurvedAnimation(
                 parent: animation,
-                curve: Curves.easeOutQuart,
+                curve: Curves.easeOutQuint,
               ),
             );
             
@@ -164,7 +164,7 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
               ),
             );
           },
-          transitionDuration: const Duration(milliseconds: 800),
+          transitionDuration: const Duration(milliseconds: 1200),
         ),
       );
     }
@@ -182,7 +182,7 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final screenSize = MediaQuery.of(context).size;
+    // final screenSize = MediaQuery.of(context).size;
     
     return Scaffold(
       body: AnimatedBuilder(
@@ -342,17 +342,23 @@ class _SearchAnimationScreenState extends State<SearchAnimationScreen>
                                       ? CrossAxisAlignment.start
                                       : CrossAxisAlignment.center,
                                   children: [
-                                    ShaderMask(
-                                      shaderCallback: (bounds) => const LinearGradient(
-                                        colors: [Color(0xFF9B7DC6), Color(0xFFE89BC9)],
-                                      ).createShader(bounds),
-                                      child: const Text(
-                                        'Lost & Found',
-                                        style: TextStyle(
-                                          fontSize: 48,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          letterSpacing: 1.2,
+                                    Hero(
+                                      tag: 'lost_found_title',
+                                      child: Material(
+                                        color: Colors.transparent,
+                                        child: ShaderMask(
+                                          shaderCallback: (bounds) => const LinearGradient(
+                                            colors: [Color(0xFF9B7DC6), Color(0xFFE89BC9)],
+                                          ).createShader(bounds),
+                                          child: const Text(
+                                            'Lost & Found',
+                                            style: TextStyle(
+                                              fontSize: 48,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              letterSpacing: 1.2,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                     ),

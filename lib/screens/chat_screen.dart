@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../widgets/user_avatar.dart';
+import '../utils/avatar_utils.dart';
 
 class ChatScreen extends StatefulWidget {
   final String itemId;
@@ -396,88 +398,113 @@ class _MessageBubbleState extends State<_MessageBubble> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return MouseRegion(
       onEnter: (_) => setState(() => _isHovered = true),
       onExit: (_) => setState(() => _isHovered = false),
       child: Align(
         alignment:
             widget.isMe ? Alignment.centerRight : Alignment.centerLeft,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 250),
-          transform: Matrix4.identity()
-            ..scale(_isHovered ? 1.02 : 1.0),
-          margin: const EdgeInsets.only(bottom: 12),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.7,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: widget.isMe
-                  ? _isHovered
-                      ? [
-                          const Color(0xFFD1A9E8),
-                          const Color(0xFFE89BC9),
-                        ]
-                      : [
-                          const Color(0xFFB8A9E8),
-                          const Color(0xFFD1A9E8),
-                        ]
-                  : _isHovered
-                      ? [
-                          Colors.white,
-                          Colors.white.withOpacity(0.9),
-                        ]
-                      : [
-                          Colors.white.withOpacity(0.9),
-                          Colors.white.withOpacity(0.8),
-                        ],
-            ),
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(20),
-              topRight: const Radius.circular(20),
-              bottomLeft: Radius.circular(widget.isMe ? 20 : 4),
-              bottomRight: Radius.circular(widget.isMe ? 4 : 20),
-            ),
-            border: Border.all(
-              color: widget.isMe
-                  ? Colors.white.withOpacity(0.5)
-                  : const Color(0xFFB8A9E8).withOpacity(0.2),
-              width: 1.5,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.isMe
-                    ? const Color(0xFFB8A9E8).withOpacity(0.2)
-                    : Colors.black.withOpacity(0.05),
-                blurRadius: _isHovered ? 15 : 10,
-                offset: Offset(0, _isHovered ? 6 : 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            if (!widget.isMe) ...[
+              UserAvatar(
+                avatarIcon: AvatarUtils.getAvatarFromEmail(widget.email),
+                size: 32,
+                isDark: isDark,
               ),
+              const SizedBox(width: 8),
             ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                widget.email,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: widget.isMe
-                      ? Colors.white.withOpacity(0.8)
-                      : const Color(0xFF9B7DC6).withOpacity(0.6),
-                  fontWeight: FontWeight.w500,
+            Flexible(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                transform: Matrix4.identity()
+                  ..scale(_isHovered ? 1.02 : 1.0),
+                margin: const EdgeInsets.only(bottom: 12),
+                constraints: BoxConstraints(
+                  maxWidth: MediaQuery.of(context).size.width * 0.65,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: widget.isMe
+                        ? _isHovered
+                            ? [
+                                const Color(0xFFD1A9E8),
+                                const Color(0xFFE89BC9),
+                              ]
+                            : [
+                                const Color(0xFFB8A9E8),
+                                const Color(0xFFD1A9E8),
+                              ]
+                        : _isHovered
+                            ? [
+                                Colors.white,
+                                Colors.white.withOpacity(0.9),
+                              ]
+                            : [
+                                Colors.white.withOpacity(0.9),
+                                Colors.white.withOpacity(0.8),
+                              ],
+                  ),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(20),
+                    topRight: const Radius.circular(20),
+                    bottomLeft: Radius.circular(widget.isMe ? 20 : 4),
+                    bottomRight: Radius.circular(widget.isMe ? 4 : 20),
+                  ),
+                  border: Border.all(
+                    color: widget.isMe
+                        ? Colors.white.withOpacity(0.5)
+                        : const Color(0xFFB8A9E8).withOpacity(0.2),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: widget.isMe
+                          ? const Color(0xFFB8A9E8).withOpacity(0.2)
+                          : Colors.black.withOpacity(0.05),
+                      blurRadius: _isHovered ? 15 : 10,
+                      offset: Offset(0, _isHovered ? 6 : 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.email,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: widget.isMe
+                            ? Colors.white.withOpacity(0.8)
+                            : const Color(0xFF9B7DC6).withOpacity(0.6),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      widget.message,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: widget.isMe ? Colors.white : const Color(0xFF9B7DC6),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                widget.message,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: widget.isMe ? Colors.white : const Color(0xFF9B7DC6),
-                ),
+            ),
+            if (widget.isMe) ...[
+              const SizedBox(width: 8),
+              UserAvatar(
+                avatarIcon: AvatarUtils.getAvatarFromEmail(widget.email),
+                size: 32,
+                isDark: isDark,
               ),
             ],
-          ),
+          ],
         ),
       ),
     );

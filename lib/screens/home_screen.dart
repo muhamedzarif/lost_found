@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'report_screen.dart';
 import 'items_screen.dart';
 import 'login_screen.dart';
 import '../main.dart';
+import '../widgets/user_avatar.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -18,6 +20,8 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _staggerController;
   late Animation<double> _fadeAnimation;
   late List<Animation<double>> _cardAnimations;
+  String userAvatar = 'key'; // default avatar
+  String userName = 'User'; // default name
 
   @override
   void initState() {
@@ -53,6 +57,83 @@ class _HomeScreenState extends State<HomeScreen>
     
     _controller.forward();
     _staggerController.forward();
+    _loadAvatar();
+    _loadUserName();
+    _checkAndShowCampusNotice();
+  }
+
+  Future<void> _checkAndShowCampusNotice() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenNotice = prefs.getBool('has_seen_campus_notice') ?? false;
+    
+    if (!hasSeenNotice && mounted) {
+      // Small delay to let the screen settle
+      await Future.delayed(const Duration(milliseconds: 800));
+      
+      if (mounted) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => _CampusNoticeDialog(isDark: isDark),
+        );
+        
+        // Mark as seen
+        await prefs.setBool('has_seen_campus_notice', true);
+      }
+    }
+  }
+
+  Future<void> _loadAvatar() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userAvatar = prefs.getString('user_avatar') ?? 'key';
+    });
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userName = prefs.getString('user_name') ?? 'User';
+    });
+  }
+
+  Future<void> _changeAvatar() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final newAvatar = await showDialog<String>(
+      context: context,
+      builder: (context) => AvatarSelectionDialog(
+        currentAvatar: userAvatar,
+        isDark: isDark,
+      ),
+    );
+
+    if (newAvatar != null) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_avatar', newAvatar);
+      setState(() {
+        userAvatar = newAvatar;
+      });
+    }
+  }
+
+  Future<void> _editUserName() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => _NameEditDialog(
+        currentName: userName,
+        isDark: isDark,
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_name', newName);
+      setState(() {
+        userName = newName;
+      });
+    }
   }
 
   @override
@@ -102,16 +183,22 @@ class _HomeScreenState extends State<HomeScreen>
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          ShaderMask(
-                            shaderCallback: (bounds) => const LinearGradient(
-                              colors: [Color(0xFF9B7DC6), Color(0xFFE89BC9)],
-                            ).createShader(bounds),
-                            child: const Text(
-                              'Lost & Found',
-                              style: TextStyle(
-                                fontSize: 28,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
+                          Hero(
+                            tag: 'lost_found_title',
+                            child: Material(
+                              color: Colors.transparent,
+                              child: ShaderMask(
+                                shaderCallback: (bounds) => const LinearGradient(
+                                  colors: [Color(0xFF9B7DC6), Color(0xFFE89BC9)],
+                                ).createShader(bounds),
+                                child: const Text(
+                                  'Lost & Found',
+                                  style: TextStyle(
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -129,6 +216,142 @@ class _HomeScreenState extends State<HomeScreen>
                       ),
                       Row(
                         children: [
+                          // Username & Avatar Group
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: isDark
+                                    ? [
+                                        const Color(0xFF3D2F4D).withOpacity(0.7),
+                                        const Color(0xFF4A3D5C).withOpacity(0.7),
+                                      ]
+                                    : [
+                                        Colors.white.withOpacity(0.8),
+                                        Colors.white.withOpacity(0.6),
+                                      ],
+                              ),
+                              borderRadius: BorderRadius.circular(30),
+                              border: Border.all(
+                                color: isDark
+                                    ? const Color(0xFFB8A9E8).withOpacity(0.3)
+                                    : Colors.white.withOpacity(0.5),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: const Color(0xFFB8A9E8).withOpacity(0.2),
+                                  blurRadius: 15,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    GestureDetector(
+                                      onTap: _changeAvatar,
+                                      child: UserAvatar(
+                                        avatarIcon: userAvatar,
+                                        size: 45,
+                                        isDark: isDark,
+                                      ),
+                                    ),
+                                    Positioned(
+                                      right: -2,
+                                      bottom: -2,
+                                      child: GestureDetector(
+                                        onTap: _changeAvatar,
+                                        child: Container(
+                                          padding: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              colors: [
+                                                Color(0xFF667EEA),
+                                                Color(0xFF764BA2),
+                                              ],
+                                            ),
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: isDark
+                                                  ? const Color(0xFF3D2F4D)
+                                                  : Colors.white,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: const Icon(
+                                            Icons.edit_rounded,
+                                            color: Colors.white,
+                                            size: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(width: 10),
+                                GestureDetector(
+                                  onTap: _editUserName,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          ShaderMask(
+                                            shaderCallback: (bounds) =>
+                                                const LinearGradient(
+                                              colors: [
+                                                Color(0xFF667EEA),
+                                                Color(0xFF764BA2),
+                                              ],
+                                            ).createShader(bounds),
+                                            child: Text(
+                                              userName,
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                                letterSpacing: 0.3,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Icon(
+                                            Icons.edit_rounded,
+                                            size: 12,
+                                            color: isDark
+                                                ? const Color(0xFFB8A9E8)
+                                                    .withOpacity(0.6)
+                                                : const Color(0xFF9B7DC6)
+                                                    .withOpacity(0.6),
+                                          ),
+                                        ],
+                                      ),
+                                      Text(
+                                        'Tap to edit',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          color: isDark
+                                              ? const Color(0xFFB8A9E8)
+                                                  .withOpacity(0.7)
+                                              : const Color(0xFF9B7DC6)
+                                                  .withOpacity(0.6),
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
                           _ThemeToggleButton(),
                           const SizedBox(width: 12),
                           _LogoutButton(),
@@ -235,20 +458,31 @@ class _HomeScreenState extends State<HomeScreen>
                                         pageBuilder: (context, animation, secondaryAnimation) =>
                                             const ReportScreen(),
                                         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                          const begin = Offset(1.0, 0.0);
-                                          const end = Offset.zero;
-                                          const curve = Curves.easeInOutCubic;
-                                          var tween = Tween(begin: begin, end: end)
-                                              .chain(CurveTween(curve: curve));
+                                          // Slide from right with bounce
+                                          final slideAnimation = Tween<Offset>(
+                                            begin: const Offset(1.0, 0.0),
+                                            end: Offset.zero,
+                                          ).animate(
+                                            CurvedAnimation(
+                                              parent: animation,
+                                              curve: Curves.easeOutCubic,
+                                            ),
+                                          );
+                                          final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                                            CurvedAnimation(
+                                              parent: animation,
+                                              curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
+                                            ),
+                                          );
                                           return SlideTransition(
-                                            position: animation.drive(tween),
+                                            position: slideAnimation,
                                             child: FadeTransition(
-                                              opacity: animation,
+                                              opacity: fadeAnimation,
                                               child: child,
                                             ),
                                           );
                                         },
-                                        transitionDuration: const Duration(milliseconds: 400),
+                                        transitionDuration: const Duration(milliseconds: 350),
                                       ),
                                     );
                                   },
@@ -281,20 +515,31 @@ class _HomeScreenState extends State<HomeScreen>
                                         pageBuilder: (context, animation, secondaryAnimation) =>
                                             const ItemsScreen(initialFilter: 'all'),
                                         transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                          const begin = Offset(-1.0, 0.0);
-                                          const end = Offset.zero;
-                                          const curve = Curves.easeInOutCubic;
-                                          var tween = Tween(begin: begin, end: end)
-                                              .chain(CurveTween(curve: curve));
+                                          // Slide from left with fade
+                                          final slideAnimation = Tween<Offset>(
+                                            begin: const Offset(-1.0, 0.0),
+                                            end: Offset.zero,
+                                          ).animate(
+                                            CurvedAnimation(
+                                              parent: animation,
+                                              curve: Curves.easeOutCubic,
+                                            ),
+                                          );
+                                          final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                                            CurvedAnimation(
+                                              parent: animation,
+                                              curve: const Interval(0.0, 0.6, curve: Curves.easeIn),
+                                            ),
+                                          );
                                           return SlideTransition(
-                                            position: animation.drive(tween),
+                                            position: slideAnimation,
                                             child: FadeTransition(
-                                              opacity: animation,
+                                              opacity: fadeAnimation,
                                               child: child,
                                             ),
                                           );
                                         },
-                                        transitionDuration: const Duration(milliseconds: 400),
+                                        transitionDuration: const Duration(milliseconds: 350),
                                       ),
                                     );
                                   },
@@ -553,20 +798,28 @@ class _LogoutButtonState extends State<_LogoutButton> {
                   pageBuilder: (context, animation, secondaryAnimation) =>
                       const LoginScreen(),
                   transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    const begin = Offset(-1.0, 0.0);
-                    const end = Offset.zero;
-                    const curve = Curves.easeInOutCubic;
-                    var tween = Tween(begin: begin, end: end)
-                        .chain(CurveTween(curve: curve));
-                    return SlideTransition(
-                      position: animation.drive(tween),
-                      child: FadeTransition(
-                        opacity: animation,
+                    // Fade out current, fade in login
+                    final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeInOut,
+                      ),
+                    );
+                    final scaleAnimation = Tween<double>(begin: 1.05, end: 1.0).animate(
+                      CurvedAnimation(
+                        parent: animation,
+                        curve: Curves.easeOut,
+                      ),
+                    );
+                    return FadeTransition(
+                      opacity: fadeAnimation,
+                      child: ScaleTransition(
+                        scale: scaleAnimation,
                         child: child,
                       ),
                     );
                   },
-                  transitionDuration: const Duration(milliseconds: 500),
+                  transitionDuration: const Duration(milliseconds: 400),
                 ),
               );
             }
@@ -704,6 +957,546 @@ class _ThemeToggleButtonState extends State<_ThemeToggleButton>
                 ),
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NameEditDialog extends StatefulWidget {
+  final String currentName;
+  final bool isDark;
+
+  const _NameEditDialog({
+    required this.currentName,
+    required this.isDark,
+  });
+
+  @override
+  State<_NameEditDialog> createState() => _NameEditDialogState();
+}
+
+class _CampusNoticeDialog extends StatelessWidget {
+  final bool isDark;
+
+  const _CampusNoticeDialog({required this.isDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      child: TweenAnimationBuilder<double>(
+        duration: const Duration(milliseconds: 500),
+        tween: Tween(begin: 0.0, end: 1.0),
+        curve: Curves.elasticOut,
+        builder: (context, value, child) {
+          return Transform.scale(
+            scale: value,
+            child: Container(
+              constraints: const BoxConstraints(maxWidth: 450),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: isDark
+                      ? [
+                          const Color(0xFF2D2438),
+                          const Color(0xFF3D2F4D),
+                          const Color(0xFF4A3D5C),
+                        ]
+                      : [
+                          const Color(0xFFF5E6FF),
+                          const Color(0xFFFFE5F1),
+                          const Color(0xFFFFF0E5),
+                        ],
+                ),
+                borderRadius: BorderRadius.circular(32),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFFB8A9E8).withOpacity(0.3)
+                      : Colors.white.withOpacity(0.6),
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: (isDark
+                            ? const Color(0xFF9B7DC6)
+                            : const Color(0xFFB8A9E8))
+                        .withOpacity(0.5),
+                    blurRadius: 60,
+                    spreadRadius: 8,
+                    offset: const Offset(0, 30),
+                  ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header with Icon
+                    Container(
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFFFF9A8B), Color(0xFFFF6A88)],
+                        ),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFFFF6A88).withOpacity(0.5),
+                            blurRadius: 25,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.warning_amber_rounded,
+                        color: Colors.white,
+                        size: 42,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    // Title
+                    ShaderMask(
+                      shaderCallback: (bounds) => const LinearGradient(
+                        colors: [Color(0xFFFF6A88), Color(0xFFFF9A8B)],
+                      ).createShader(bounds),
+                      child: const Text(
+                        'Important Notice',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: Colors.white,
+                          letterSpacing: 0.8,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Notice Text
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? const Color(0xFF1A1625).withOpacity(0.7)
+                            : Colors.white.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark
+                              ? const Color(0xFFB8A9E8).withOpacity(0.2)
+                              : const Color(0xFF9B7DC6).withOpacity(0.2),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: RichText(
+                        textAlign: TextAlign.center,
+                        text: TextSpan(
+                          style: TextStyle(
+                            fontSize: 15,
+                            height: 1.6,
+                            color: isDark
+                                ? const Color(0xFFE8E0F5)
+                                : const Color(0xFF2D2438),
+                            letterSpacing: 0.3,
+                          ),
+                          children: [
+                            const TextSpan(
+                              text: 'Lost & Found is a campus-only app for ',
+                            ),
+                            TextSpan(
+                              text: 'STELLA MARY\'S COLLEGE OF ENGINEERING',
+                              style: TextStyle(
+                                color: isDark 
+                                    ? const Color(0xFF64B5F6)
+                                    : const Color(0xFF1976D2),
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const TextSpan(
+                              text: ' that helps students recover lost items. If you lose or find something on campus, you can post it in the app so the rightful owner can locate and claim it. The app works only within the college campus and cannot be used outside the campus community, keeping posts relevant and trustworthy.',
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    // Accept Button
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.transparent,
+                          shadowColor: Colors.transparent,
+                          padding: EdgeInsets.zero,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                        ),
+                        child: Ink(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                            ),
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF667EEA).withOpacity(0.5),
+                                blurRadius: 20,
+                                offset: const Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 18),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              'I Understand & Accept',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _NameEditDialogState extends State<_NameEditDialog>
+    with SingleTickerProviderStateMixin {
+  late TextEditingController _nameController;
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: widget.currentName);
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 400),
+      vsync: this,
+    );
+    _scaleAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.elasticOut,
+    );
+    _fadeAnimation = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOut,
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 400),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: widget.isDark
+                    ? [
+                        const Color(0xFF2D2438),
+                        const Color(0xFF3D2F4D),
+                        const Color(0xFF4A3D5C),
+                      ]
+                    : [
+                        const Color(0xFFF5E6FF),
+                        const Color(0xFFFFE5F1),
+                        const Color(0xFFFFF0E5),
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(
+                color: widget.isDark
+                    ? const Color(0xFFB8A9E8).withOpacity(0.3)
+                    : Colors.white.withOpacity(0.6),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: (widget.isDark
+                          ? const Color(0xFF9B7DC6)
+                          : const Color(0xFFB8A9E8))
+                      .withOpacity(0.4),
+                  blurRadius: 50,
+                  spreadRadius: 5,
+                  offset: const Offset(0, 25),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header with Icon
+                  Row(
+                    children: [
+                      TweenAnimationBuilder<double>(
+                        duration: const Duration(milliseconds: 800),
+                        tween: Tween(begin: 0.0, end: 1.0),
+                        curve: Curves.elasticOut,
+                        builder: (context, value, child) {
+                          return Transform.scale(
+                            scale: value,
+                            child: Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                                ),
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: const Color(0xFF667EEA).withOpacity(0.5),
+                                    blurRadius: 20,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.person_rounded,
+                                color: Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ShaderMask(
+                              shaderCallback: (bounds) =>
+                                  const LinearGradient(
+                                colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                              ).createShader(bounds),
+                              child: const Text(
+                                'Edit Your Name',
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'How should we call you?',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: widget.isDark
+                                    ? const Color(0xFFB8A9E8).withOpacity(0.8)
+                                    : const Color(0xFF9B7DC6).withOpacity(0.7),
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: widget.isDark
+                                ? const Color(0xFF3D2F4D).withOpacity(0.6)
+                                : Colors.white.withOpacity(0.4),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.close_rounded,
+                            color: widget.isDark
+                                ? const Color(0xFFD4C5F9)
+                                : const Color(0xFF9B7DC6),
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+                  // Text Field
+                  Container(
+                    decoration: BoxDecoration(
+                      color: widget.isDark
+                          ? const Color(0xFF3D2F4D).withOpacity(0.6)
+                          : Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFB8A9E8).withOpacity(0.15),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _nameController,
+                      autofocus: true,
+                      maxLength: 20,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: widget.isDark
+                            ? const Color(0xFFE8E0F5)
+                            : Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: 'Display Name',
+                        labelStyle: TextStyle(
+                          color: widget.isDark
+                              ? const Color(0xFFB8A9E8).withOpacity(0.9)
+                              : const Color(0xFF9B7DC6).withOpacity(0.7),
+                        ),
+                        prefixIcon: Icon(
+                          Icons.badge_rounded,
+                          color: widget.isDark
+                              ? const Color(0xFFD4C5F9)
+                              : const Color(0xFFB8A9E8),
+                          size: 24,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(18),
+                          borderSide: BorderSide.none,
+                        ),
+                        filled: true,
+                        fillColor: Colors.transparent,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 18,
+                        ),
+                        counterStyle: TextStyle(
+                          color: widget.isDark
+                              ? const Color(0xFFB8A9E8).withOpacity(0.6)
+                              : const Color(0xFF9B7DC6).withOpacity(0.5),
+                          fontSize: 11,
+                        ),
+                      ),
+                      onSubmitted: (value) {
+                        if (value.isNotEmpty) {
+                          Navigator.pop(context, value.trim());
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            backgroundColor: widget.isDark
+                                ? const Color(0xFF3D2F4D).withOpacity(0.6)
+                                : Colors.white.withOpacity(0.7),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                              side: BorderSide(
+                                color: widget.isDark
+                                    ? const Color(0xFFB8A9E8).withOpacity(0.3)
+                                    : const Color(0xFF9B7DC6).withOpacity(0.3),
+                                width: 1.5,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: widget.isDark
+                                  ? const Color(0xFFD4C5F9)
+                                  : const Color(0xFF9B7DC6),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        flex: 2,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF667EEA), Color(0xFF764BA2)],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF667EEA).withOpacity(0.4),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              if (_nameController.text.isNotEmpty) {
+                                Navigator.pop(context, _nameController.text.trim());
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.transparent,
+                              shadowColor: Colors.transparent,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text(
+                              'Save Name',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

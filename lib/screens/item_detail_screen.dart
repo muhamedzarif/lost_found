@@ -47,6 +47,154 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
     super.dispose();
   }
 
+  Future<void> deleteItem() async {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You must be logged in to delete items'),
+            backgroundColor: const Color(0xFFFF9EC9),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Check if user owns this item (check both user_id and user_email for backwards compatibility)
+    final isOwner = (widget.item['user_id'] != null && widget.item['user_id'] == currentUser.id) ||
+                    (widget.item['user_email'] != null && widget.item['user_email'] == currentUser.email);
+    
+    if (!isOwner) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('You can only delete your own items'),
+            backgroundColor: const Color(0xFFFF9EC9),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        return AlertDialog(
+          backgroundColor: isDark
+              ? const Color(0xFF2D2438)
+              : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+            side: BorderSide(
+              color: isDark
+                  ? const Color(0xFFB8A9E8).withOpacity(0.3)
+                  : const Color(0xFF9B7DC6).withOpacity(0.3),
+              width: 2,
+            ),
+          ),
+          title: Text(
+            'Delete Item?',
+            style: TextStyle(
+              color: isDark ? Colors.white : const Color(0xFF2D2438),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${widget.item['title']}"? This action cannot be undone.',
+            style: TextStyle(
+              color: isDark
+                  ? Colors.white.withOpacity(0.8)
+                  : const Color(0xFF2D2438).withOpacity(0.8),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark
+                      ? const Color(0xFFD4C5F9)
+                      : const Color(0xFF9B7DC6),
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF6B6B),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Delete',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) return;
+
+    // Delete the item
+    try {
+      await Supabase.instance.client
+          .from('items')
+          .delete()
+          .eq('id', widget.item['id']);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Item deleted successfully'),
+            backgroundColor: const Color(0xFFB8E8D4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        // Go back to previous screen
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting item: ${e.toString()}'),
+            backgroundColor: const Color(0xFFFF9EC9),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
+  bool _isOwner() {
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    if (currentUser == null) return false;
+    
+    return (widget.item['user_id'] != null && widget.item['user_id'] == currentUser.id) ||
+           (widget.item['user_email'] != null && widget.item['user_email'] == currentUser.email);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -395,21 +543,32 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
                                   ),
                                   transitionsBuilder: (context, animation,
                                       secondaryAnimation, child) {
-                                    const begin = Offset(1.0, 0.0);
-                                    const end = Offset.zero;
-                                    const curve = Curves.easeInOutCubic;
-                                    var tween = Tween(begin: begin, end: end)
-                                        .chain(CurveTween(curve: curve));
+                                    // Smooth slide from bottom with fade
+                                    final slideAnimation = Tween<Offset>(
+                                      begin: const Offset(0.0, 0.15),
+                                      end: Offset.zero,
+                                    ).animate(
+                                      CurvedAnimation(
+                                        parent: animation,
+                                        curve: Curves.easeOutCubic,
+                                      ),
+                                    );
+                                    final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+                                      CurvedAnimation(
+                                        parent: animation,
+                                        curve: Curves.easeOut,
+                                      ),
+                                    );
                                     return SlideTransition(
-                                      position: animation.drive(tween),
+                                      position: slideAnimation,
                                       child: FadeTransition(
-                                        opacity: animation,
+                                        opacity: fadeAnimation,
                                         child: child,
                                       ),
                                     );
                                   },
                                   transitionDuration:
-                                      const Duration(milliseconds: 400),
+                                      const Duration(milliseconds: 300),
                                 ),
                               );
                             },
@@ -417,6 +576,13 @@ class _ItemDetailScreenState extends State<ItemDetailScreen>
                             isLost: isLost,
                           ),
                           const SizedBox(height: 20),
+                          // Delete Button (only show if user owns this item)
+                          if (_isOwner())
+                            _DeleteButton(
+                              onPressed: deleteItem,
+                            ),
+                          if (_isOwner())
+                            const SizedBox(height: 20),
                         ],
                       ),
                     ),
@@ -642,6 +808,136 @@ class _ContactButtonState extends State<_ContactButton>
                     Text(
                       widget.label,
                       style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DeleteButton extends StatefulWidget {
+  final VoidCallback onPressed;
+
+  const _DeleteButton({
+    required this.onPressed,
+  });
+
+  @override
+  State<_DeleteButton> createState() => _DeleteButtonState();
+}
+
+class _DeleteButtonState extends State<_DeleteButton>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  late AnimationController _scaleController;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _scaleController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 100),
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(
+        parent: _scaleController,
+        curve: Curves.easeInOut,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _scaleController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovered = true),
+      onExit: (_) => setState(() => _isHovered = false),
+      child: AnimatedBuilder(
+        animation: _scaleAnimation,
+        builder: (context, child) {
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.002)
+              ..rotateX(_isHovered ? -0.05 : 0)
+              ..scale(_scaleAnimation.value * (_isHovered ? 1.02 : 1.0)),
+            child: GestureDetector(
+              onTapDown: (_) => _scaleController.forward(),
+              onTapUp: (_) {
+                _scaleController.reverse();
+                Future.delayed(const Duration(milliseconds: 100), () {
+                  widget.onPressed();
+                });
+              },
+              onTapCancel: () => _scaleController.reverse(),
+              child: child,
+            ),
+          );
+        },
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: _isHovered
+                  ? [
+                      const Color(0xFFFF4444),
+                      const Color(0xFFFF6B6B),
+                    ]
+                  : [
+                      const Color(0xFFFF3333),
+                      const Color(0xFFFF5252),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.2),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFF6B6B)
+                    .withOpacity(_isHovered ? 0.4 : 0.3),
+                blurRadius: _isHovered ? 25 : 15,
+                offset: Offset(0, _isHovered ? 12 : 8),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              splashColor: Colors.white.withOpacity(0.3),
+              highlightColor: Colors.white.withOpacity(0.1),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.delete_outline_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    const Text(
+                      'Delete This Item',
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
