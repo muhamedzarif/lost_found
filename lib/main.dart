@@ -1,30 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/login_screen.dart';
+import 'utils/batman_style.dart';
+import 'utils/theme_controller.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Supabase.initialize(
     url: 'https://vbcpkvmifljpcffsnmgw.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiY3Brdm1pZmxqcGNmZnNubWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNzUyODQsImV4cCI6MjA4ODY1MTI4NH0.UZwuPf5mlOEURaJ35rm1CBB6WynvW0kkmVKrif7mOZU',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZiY3Brdm1pZmxqcGNmZnNubWd3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMwNzUyODQsImV4cCI6MjA4ODY1MTI4NH0.UZwuPf5mlOEURaJ35rm1CBB6WynvW0kkmVKrif7mOZU',
   );
+  await themeController.loadThemeMode();
   runApp(const MyApp());
 }
-
-class ThemeNotifier extends ChangeNotifier {
-  ThemeMode _themeMode = ThemeMode.light;
-  
-  ThemeMode get themeMode => _themeMode;
-  bool get isDarkMode => _themeMode == ThemeMode.dark;
-  
-  void toggleTheme() {
-    _themeMode = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
-    notifyListeners();
-  }
-}
-
-final themeNotifier = ThemeNotifier();
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -37,139 +27,122 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    themeNotifier.addListener(() {
+    themeController.addListener(_onThemeChanged);
+  }
+
+  @override
+  void dispose() {
+    themeController.removeListener(_onThemeChanged);
+    super.dispose();
+  }
+
+  void _onThemeChanged() {
+    if (mounted) {
       setState(() {});
-    });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Lost & Found',
+      title: 'LOST AND FOUND',
       debugShowCheckedModeBanner: false,
-      themeMode: themeNotifier.themeMode,
-      theme: _buildLightTheme(),
-      darkTheme: _buildDarkTheme(),
+      theme: _buildBatmanTheme(BatmanPalettes.light, Brightness.light),
+      darkTheme: _buildBatmanTheme(BatmanPalettes.dark, Brightness.dark),
+      themeMode: themeController.themeMode,
+      themeAnimationDuration: const Duration(milliseconds: 450),
+      themeAnimationCurve: Curves.easeInOutCubic,
       home: const AuthGate(),
-      onGenerateRoute: (settings) {
-        return PageRouteBuilder(
-          settings: settings,
-          pageBuilder: (context, animation, secondaryAnimation) {
-            return const LoginScreen();
-          },
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            const begin = Offset(1.0, 0.0);
-            const end = Offset.zero;
-            const curve = Curves.easeInOutCubic;
-            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
-            var offsetAnimation = animation.drive(tween);
-            return SlideTransition(
-              position: offsetAnimation,
-              child: FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 400),
-        );
-      },
     );
   }
 
-  ThemeData _buildLightTheme() {
+  ThemeData _buildBatmanTheme(BatmanPalette palette, Brightness brightness) {
+    final colorScheme = ColorScheme(
+      brightness: brightness,
+      primary: palette.accent,
+      onPrimary: Colors.black,
+      secondary: palette.accent,
+      onSecondary: Colors.black,
+      error: palette.danger,
+      onError: Colors.white,
+      surface: palette.surface,
+      onSurface: palette.textPrimary,
+    );
+
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFFB8A9E8),
-        brightness: Brightness.light,
-      ),
-      scaffoldBackgroundColor: const Color(0xFFF5F0FF),
-      cardTheme: CardThemeData(
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
+      brightness: brightness,
+      colorScheme: colorScheme,
+      scaffoldBackgroundColor: palette.backgroundStart,
+      fontFamily: 'System',
+      appBarTheme: AppBarTheme(
         elevation: 0,
         backgroundColor: Colors.transparent,
+        foregroundColor: palette.textPrimary,
+        centerTitle: false,
+      ),
+      cardTheme: CardThemeData(
+        color: palette.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: palette.border),
+        ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white.withOpacity(0.9),
+        fillColor: palette.surfaceAlt,
+        labelStyle: TextStyle(color: palette.textSecondary),
+        hintStyle: TextStyle(color: palette.textSecondary),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: palette.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: palette.border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFB8A9E8), width: 2),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: palette.accent, width: 1.5),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+          backgroundColor: palette.accent,
+          foregroundColor: Colors.black,
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
       ),
-      fontFamily: 'System',
-    );
-  }
-
-  ThemeData _buildDarkTheme() {
-    return ThemeData(
-      useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: const Color(0xFFB8A9E8),
-        brightness: Brightness.dark,
-      ),
-      scaffoldBackgroundColor: const Color(0xFF1A1625),
-      cardTheme: CardThemeData(
-        elevation: 0,
-        color: const Color(0xFF2D2438),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
-      ),
-      appBarTheme: const AppBarTheme(
-        centerTitle: true,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        fillColor: const Color(0xFF2D2438),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: BorderSide.none,
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(16),
-          borderSide: const BorderSide(color: Color(0xFFB8A9E8), width: 2),
-        ),
-      ),
-      elevatedButtonTheme: ElevatedButtonThemeData(
-        style: ElevatedButton.styleFrom(
-          elevation: 0,
-          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          side: BorderSide(color: palette.border),
+          foregroundColor: palette.textPrimary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
           ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         ),
       ),
-      fontFamily: 'System',
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+          TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+          TargetPlatform.fuchsia: ZoomPageTransitionsBuilder(),
+        },
+      ),
     );
   }
 }
 
-// AuthGate widget to check if user is already logged in
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -185,48 +158,26 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkSession() async {
-    // Small delay to avoid flash
-    await Future.delayed(const Duration(milliseconds: 100));
-    
+    await Future.delayed(const Duration(milliseconds: 120));
     final session = Supabase.instance.client.auth.currentSession;
-    
-    if (mounted) {
-      if (session != null) {
-        // User is logged in, go to home
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
-      } else {
-        // User not logged in, go to login
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const LoginScreen()),
-        );
-      }
-    }
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(
+      batmanPageRoute(
+        session != null ? const HomeScreen() : const LoginScreen(),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Simple loading screen while checking session
+    final palette = batmanPalette(context);
+
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              const Color(0xFFE8D5F2),
-              const Color(0xFFF5E6FF),
-              const Color(0xFFFFE5F1),
-              const Color(0xFFFFF0E5),
-            ],
-          ),
-        ),
-        child: const Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFF9B7DC6),
-          ),
-        ),
+        decoration: batmanBackgroundDecoration(context),
+        child: Center(child: CircularProgressIndicator(color: palette.accent)),
       ),
     );
   }

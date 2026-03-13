@@ -1,7 +1,8 @@
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:file_picker/file_picker.dart';
-import 'dart:typed_data';
+import '../utils/batman_style.dart';
 
 class ReportTypeBlock extends StatefulWidget {
   final String type;
@@ -51,20 +52,20 @@ class ReportTypeBlock extends StatefulWidget {
 
 class _ReportTypeBlockState extends State<ReportTypeBlock>
     with SingleTickerProviderStateMixin {
-  bool _isHovered = false;
-  late AnimationController _expandController;
+  late final AnimationController _expandController;
 
   @override
   void initState() {
     super.initState();
     _expandController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 400),
+      duration: const Duration(milliseconds: 250),
+      value: widget.isExpanded ? 1 : 0,
     );
   }
 
   @override
-  void didUpdateWidget(ReportTypeBlock oldWidget) {
+  void didUpdateWidget(covariant ReportTypeBlock oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.isExpanded) {
       _expandController.forward();
@@ -81,203 +82,139 @@ class _ReportTypeBlockState extends State<ReportTypeBlock>
 
   @override
   Widget build(BuildContext context) {
-    return MouseRegion(
-      onEnter: (_) => setState(() => _isHovered = true),
-      onExit: (_) => setState(() => _isHovered = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        transform: Matrix4.identity()
-          ..scale(widget.isExpanded ? 1.0 : (_isHovered ? 1.02 : 1.0)),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: widget.isExpanded
-                  ? widget.gradientColors
-                  : _isHovered
-                      ? [
-                          widget.gradientColors[0].withOpacity(0.85),
-                          widget.gradientColors[1].withOpacity(0.85),
-                        ]
-                      : [
-                          widget.gradientColors[0].withOpacity(0.7),
-                          widget.gradientColors[1].withOpacity(0.7),
-                        ],
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withOpacity(widget.isExpanded ? 0.6 : 0.4),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: widget.gradientColors[0].withOpacity(
-                    widget.isExpanded ? 0.4 : (_isHovered ? 0.3 : 0.2)),
-                blurRadius: widget.isExpanded ? 30 : (_isHovered ? 20 : 15),
-                offset: Offset(0, widget.isExpanded ? 15 : (_isHovered ? 12 : 8)),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: widget.isExpanded ? null : widget.onTap,
-                borderRadius: BorderRadius.circular(22),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    final palette = batmanPalette(context);
+    final accentColor = widget.gradientColors.first;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: widget.isExpanded
+              ? accentColor.withValues(alpha: 0.8)
+              : palette.border,
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: widget.isExpanded ? null : widget.onTap,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      // Header
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.9),
-                              borderRadius: BorderRadius.circular(16),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.1),
-                                  blurRadius: 10,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(
-                              widget.icon,
-                              size: 32,
-                              color: widget.gradientColors[0],
-                            ),
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: palette.surfaceAlt,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.7),
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.title,
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  widget.subtitle,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.white.withOpacity(0.9),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Icon(
-                            widget.isExpanded
-                                ? Icons.expand_less_rounded
-                                : Icons.expand_more_rounded,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ],
-                      ),
-                      // Expandable Form
-                      SizeTransition(
-                        sizeFactor: CurvedAnimation(
-                          parent: _expandController,
-                          curve: Curves.easeInOut,
                         ),
+                        child: Icon(widget.icon, color: accentColor),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const SizedBox(height: 24),
-                            const Divider(
-                              color: Colors.white,
-                              thickness: 1,
-                              height: 1,
-                            ),
-                            const SizedBox(height: 24),
-                            // Close button
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                onPressed: widget.onTap,
-                                icon: const Icon(Icons.close,
-                                    color: Colors.white, size: 18),
-                                label: const Text(
-                                  'Close',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                                style: TextButton.styleFrom(
-                                  backgroundColor:
-                                      Colors.white.withOpacity(0.2),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 8,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 16),
-                            // Form fields
-                            _buildTextField(
-                              controller: widget.titleController,
-                              label: 'Item Name',
-                              icon: Icons.label_outline_rounded,
-                              hint: 'e.g., Blue backpack',
-                            ),
-                            const SizedBox(height: 16),
-                            _buildTextField(
-                              controller: widget.descController,
-                              label: 'Description',
-                              icon: Icons.description_outlined,
-                              hint: 'Describe the item...',
-                              maxLines: 3,
-                            ),
-                            const SizedBox(height: 16),
-                            _buildTextField(
-                              controller: widget.locationController,
-                              label: 'Location',
-                              icon: Icons.location_on_outlined,
-                              hint: 'Where was it ${widget.type}?',
-                            ),
-                            // Last Seen field (only for lost items)
-                            if (widget.lastSeenController != null) ...[
-                              const SizedBox(height: 16),
-                              _buildTextField(
-                                controller: widget.lastSeenController!,
-                                label: 'Last Seen (Optional)',
-                                icon: Icons.access_time_rounded,
-                                hint: 'When/where did you last see it?',
-                              ),
-                            ],
-                            const SizedBox(height: 20),
-                            // Photo section
                             Text(
-                              'Photo (Optional)',
+                              widget.title,
                               style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white.withOpacity(0.95),
+                                color: palette.textPrimary,
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 8),
-                            _buildImagePicker(),
-                            const SizedBox(height: 24),
-                            // Submit button
-                            _buildSubmitButton(),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.subtitle,
+                              style: TextStyle(
+                                color: palette.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
+                      Icon(
+                        widget.isExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        color: palette.textSecondary,
+                      ),
                     ],
                   ),
-                ),
+                  SizeTransition(
+                    sizeFactor: CurvedAnimation(
+                      parent: _expandController,
+                      curve: Curves.easeInOut,
+                    ),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 14),
+                        Divider(color: palette.border, height: 1),
+                        const SizedBox(height: 14),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: widget.onTap,
+                            icon: const Icon(Icons.close_rounded, size: 16),
+                            label: const Text('Close'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: palette.textSecondary,
+                            ),
+                          ),
+                        ),
+                        _buildTextField(
+                          context,
+                          controller: widget.titleController,
+                          label: 'Item Name',
+                          icon: Icons.label_outline,
+                          hint: 'Example: Black backpack',
+                        ),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          context,
+                          controller: widget.descController,
+                          label: 'Description',
+                          icon: Icons.description_outlined,
+                          hint: 'Provide clear identifying details',
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                          context,
+                          controller: widget.locationController,
+                          label: 'Location',
+                          icon: Icons.location_on_outlined,
+                          hint: 'Where was the item lost/found?',
+                        ),
+                        if (widget.lastSeenController != null) ...[
+                          const SizedBox(height: 12),
+                          _buildTextField(
+                            context,
+                            controller: widget.lastSeenController!,
+                            label: 'Last Seen (Optional)',
+                            icon: Icons.history_rounded,
+                            hint: 'Add time/place of last sighting',
+                          ),
+                        ],
+                        const SizedBox(height: 12),
+                        _buildImagePicker(context, accentColor),
+                        const SizedBox(height: 16),
+                        _buildSubmitButton(context, accentColor),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -286,251 +223,137 @@ class _ReportTypeBlockState extends State<ReportTypeBlock>
     );
   }
 
-  Widget _buildTextField({
+  Widget _buildTextField(
+    BuildContext context, {
     required TextEditingController controller,
     required String label,
     required IconData icon,
-    String? hint,
+    required String hint,
     int maxLines = 1,
+    TextInputType keyboardType = TextInputType.text,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        style: TextStyle(
-          fontSize: 15,
-          color: widget.gradientColors[0].withOpacity(0.9),
-        ),
-        decoration: InputDecoration(
-          labelText: label,
-          hintText: hint,
-          hintStyle: TextStyle(
-            color: widget.gradientColors[0].withOpacity(0.4),
-          ),
-          labelStyle: TextStyle(
-            color: widget.gradientColors[0].withOpacity(0.7),
-          ),
-          prefixIcon: Icon(
-            icon,
-            color: widget.gradientColors[0],
-            size: 20,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide.none,
-          ),
-          filled: true,
-          fillColor: Colors.transparent,
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: maxLines > 1 ? 16 : 14,
-          ),
-        ),
+    final palette = batmanPalette(context);
+
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      style: TextStyle(color: palette.textPrimary),
+      decoration: batmanInputDecoration(
+        context,
+        label: label,
+        icon: icon,
+        hint: hint,
       ),
     );
   }
 
-  Widget _buildImagePicker() {
-    // Check if we have an image from file_picker (desktop)
-    if (widget.selectedImageFile != null) {
+  Widget _buildImagePicker(BuildContext context, Color accentColor) {
+    final palette = batmanPalette(context);
+    final selectedImageFile = widget.selectedImageFile;
+    final selectedImage = widget.selectedImage;
+
+    if (selectedImageFile != null) {
+      final Uint8List? bytes = selectedImageFile.bytes;
       return Stack(
         children: [
           Container(
-            height: 180,
             width: double.infinity,
+            height: 170,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.5),
-                width: 2,
-              ),
+              color: palette.surfaceAlt,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: palette.border),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: widget.selectedImageFile!.bytes != null
-                  ? Image.memory(
-                      widget.selectedImageFile!.bytes!,
-                      fit: BoxFit.cover,
-                    )
-                  : Center(
-                      child: CircularProgressIndicator(
-                        color: Colors.white.withOpacity(0.9),
-                      ),
+            clipBehavior: Clip.antiAlias,
+            child: bytes != null
+                ? Image.memory(bytes, fit: BoxFit.cover)
+                : Center(
+                    child: Text(
+                      selectedImageFile.name,
+                      style: TextStyle(color: palette.textSecondary),
                     ),
-            ),
+                  ),
           ),
           Positioned(
-            top: 8,
             right: 8,
-            child: GestureDetector(
-              onTap: widget.onRemoveImage,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
-            ),
-          ),
-        ],
-      );
-    }
-    
-    // Check if we have an image from image_picker (mobile)
-    if (widget.selectedImage != null) {
-      return Stack(
-        children: [
-          Container(
-            height: 180,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.5),
-                width: 2,
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: FutureBuilder<List<int>>(
-                future: widget.selectedImage!.readAsBytes(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.done &&
-                      snapshot.hasData) {
-                    return Image.memory(
-                      snapshot.data as Uint8List,
-                      fit: BoxFit.cover,
-                    );
-                  }
-                  return Center(
-                    child: CircularProgressIndicator(
-                      color: Colors.white.withOpacity(0.9),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-          Positioned(
             top: 8,
-            right: 8,
-            child: GestureDetector(
-              onTap: widget.onRemoveImage,
-              child: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ),
+            child: IconButton.filled(
+              onPressed: widget.onRemoveImage,
+              style: IconButton.styleFrom(backgroundColor: palette.danger),
+              icon: const Icon(Icons.close_rounded, size: 16),
             ),
           ),
         ],
       );
     }
 
-    // No image selected - show picker button
-    return GestureDetector(
-      onTap: widget.onPickImage,
-      child: Container(
-        height: 120,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.5),
-            width: 2,
-            style: BorderStyle.solid,
+    if (selectedImage != null) {
+      return Stack(
+        children: [
+          Container(
+            width: double.infinity,
+            height: 170,
+            decoration: BoxDecoration(
+              color: palette.surfaceAlt,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: palette.border),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: FutureBuilder<Uint8List>(
+              future: selectedImage.readAsBytes(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.done &&
+                    snapshot.hasData) {
+                  return Image.memory(snapshot.data!, fit: BoxFit.cover);
+                }
+                return Center(
+                  child: CircularProgressIndicator(color: palette.accent),
+                );
+              },
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.add_photo_alternate_outlined,
-              size: 40,
-              color: Colors.white.withOpacity(0.9),
+          Positioned(
+            right: 8,
+            top: 8,
+            child: IconButton.filled(
+              onPressed: widget.onRemoveImage,
+              style: IconButton.styleFrom(backgroundColor: palette.danger),
+              icon: const Icon(Icons.close_rounded, size: 16),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Add Photo',
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      );
+    }
+
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(52),
+        side: BorderSide(color: accentColor.withValues(alpha: 0.7)),
+        foregroundColor: palette.textPrimary,
       ),
+      onPressed: widget.onPickImage,
+      icon: const Icon(Icons.add_photo_alternate_outlined),
+      label: const Text('Attach Photo (Optional)'),
     );
   }
 
-  Widget _buildSubmitButton() {
+  Widget _buildSubmitButton(BuildContext context, Color accentColor) {
+    final palette = batmanPalette(context);
+
     if (widget.loading) {
-      return Center(
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.3),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(
-              color: Colors.white,
-              strokeWidth: 3,
-            ),
-          ),
-        ),
-      );
+      return Center(child: CircularProgressIndicator(color: palette.accent));
     }
 
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: widget.onSubmit,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: widget.gradientColors[0],
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 8,
-          shadowColor: Colors.black.withOpacity(0.3),
+          backgroundColor: accentColor,
+          foregroundColor: Colors.black,
         ),
-        child: Text(
-          'Submit ${widget.title}',
-          style: const TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
+        onPressed: widget.onSubmit,
+        child: Text('Submit ${widget.title}'),
       ),
     );
   }

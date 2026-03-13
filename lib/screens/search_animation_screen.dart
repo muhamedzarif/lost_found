@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
+import '../utils/batman_style.dart';
 import 'home_screen.dart';
 
 class SearchAnimationScreen extends StatefulWidget {
@@ -11,480 +11,201 @@ class SearchAnimationScreen extends StatefulWidget {
 
 class _SearchAnimationScreenState extends State<SearchAnimationScreen>
     with TickerProviderStateMixin {
-  late AnimationController _searchController;
-  late AnimationController _textController;
-  late AnimationController _glassController;
-  late AnimationController _moveController;
-  
-  late Animation<double> _searchAnimation;
-  late Animation<double> _rotationAnimation;
-  late Animation<double> _textOpacity;
-  late Animation<double> _glassOpacity;
-  late Animation<double> _glassScale;
-  late Animation<double> _particleAnimation;
-  late Animation<Offset> _textPosition;
-  late Animation<double> _textScale;
+  late final AnimationController _entryController;
+  late final AnimationController _pulseController;
+  late final AnimationController _spinController;
+  late final AnimationController _progressController;
+
+  late final Animation<Offset> _entrySlide;
+  late final Animation<double> _entryFade;
+  late final Animation<double> _pulse;
+  late final Animation<double> _progress;
 
   @override
   void initState() {
     super.initState();
-    
-    // Search movement animation (3.5 seconds - slower, more elegant)
-    _searchController = AnimationController(
-      duration: const Duration(milliseconds: 3500),
+
+    _entryController = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 460),
     );
-    
-    // Magnifying glass fade out (900ms - slower fade)
-    _glassController = AnimationController(
+
+    _pulseController = AnimationController(
+      vsync: this,
       duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+
+    _spinController = AnimationController(
       vsync: this,
-    );
-    
-    // Text reveal animation (1.8 seconds, ultra smooth entrance)
-    _textController = AnimationController(
-      duration: const Duration(milliseconds: 1800),
+      duration: const Duration(milliseconds: 1600),
+    )..repeat();
+
+    _progressController = AnimationController(
       vsync: this,
+      duration: const Duration(milliseconds: 1700),
     );
-    
-    // Text movement to top-left (1.5 seconds for silky smooth motion)
-    _moveController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
+
+    _entrySlide = Tween<Offset>(begin: const Offset(0, 0.025), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _entryController, curve: Curves.easeOutCubic),
+        );
+
+    _entryFade = CurvedAnimation(
+      parent: _entryController,
+      curve: Curves.easeOut,
     );
-    
-    _searchAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _searchController,
-        curve: Curves.easeInOutQuint,
-      ),
+
+    _pulse = Tween<double>(begin: 0.94, end: 1.06).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
-    
-    _rotationAnimation = Tween<double>(begin: 0.0, end: math.pi * 2).animate(
-      CurvedAnimation(
-        parent: _searchController,
-        curve: Curves.easeInOutSine,
-      ),
+
+    _progress = CurvedAnimation(
+      parent: _progressController,
+      curve: Curves.easeInOutCubic,
     );
-    
-    _glassOpacity = Tween<double>(begin: 1.0, end: 0.0).animate(
-      CurvedAnimation(
-        parent: _glassController,
-        curve: Curves.easeInQuad,
-      ),
-    );
-    
-    _glassScale = Tween<double>(begin: 1.0, end: 1.5).animate(
-      CurvedAnimation(
-        parent: _glassController,
-        curve: Curves.easeInOutQuad,
-      ),
-    );
-    
-    _textOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _textController,
-        curve: Curves.easeOutQuint,
-      ),
-    );
-    
-    _particleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _textController,
-        curve: Curves.easeOutQuad,
-      ),
-    );
-    
-    // Move text from center to top-left corner (adjusted position)
-    _textPosition = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(-0.55, -0.82),
-    ).animate(
-      CurvedAnimation(
-        parent: _moveController,
-        curve: Curves.easeInOutQuint,
-      ),
-    );
-    
-    // Scale text down from 48px to 28px
-    _textScale = Tween<double>(begin: 1.0, end: 0.58).animate(
-      CurvedAnimation(
-        parent: _moveController,
-        curve: Curves.easeInOutQuint,
-      ),
-    );
-    
-    _startAnimation();
+
+    _entryController.forward();
+
+    _runSequence();
   }
-  
-  Future<void> _startAnimation() async {
-    // Start search animation
-    await _searchController.forward();
-    
-    // Fade out magnifying glass and start text reveal simultaneously
-    _glassController.forward();
-    await _textController.forward();
-    
-    // Wait a bit to show the text
-    await Future.delayed(const Duration(milliseconds: 800));
-    
-    // Move text to top-left corner smoothly
-    await _moveController.forward();
-    
-    // Small delay before transition
-    await Future.delayed(const Duration(milliseconds: 300));
-    
-    // Navigate to home screen with smooth crossfade
-    if (mounted) {
-      Navigator.of(context).pushReplacement(
-        PageRouteBuilder(
-          pageBuilder: (context, animation, secondaryAnimation) =>
-              const HomeScreen(),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            // Ultra smooth crossfade with subtle scale transition
-            final fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOutQuint,
-              ),
-            );
-            
-            final scaleAnimation = Tween<double>(begin: 0.98, end: 1.0).animate(
-              CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeOutQuint,
-              ),
-            );
-            
-            return FadeTransition(
-              opacity: fadeAnimation,
-              child: ScaleTransition(
-                scale: scaleAnimation,
-                child: child,
-              ),
-            );
-          },
-          transitionDuration: const Duration(milliseconds: 1200),
-        ),
-      );
-    }
+
+  Future<void> _runSequence() async {
+    await _progressController.forward();
+    await Future.delayed(const Duration(milliseconds: 180));
+
+    if (!mounted) return;
+
+    Navigator.of(context).pushReplacement(batmanPageRoute(const HomeScreen()));
+  }
+
+  String _statusText(double progressValue) {
+    if (progressValue < 0.35) return 'Verifying credentials...';
+    if (progressValue < 0.8) return 'Securing your session...';
+    return 'Opening dashboard...';
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
-    _textController.dispose();
-    _glassController.dispose();
-    _moveController.dispose();
+    _entryController.dispose();
+    _pulseController.dispose();
+    _spinController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    // final screenSize = MediaQuery.of(context).size;
-    
+    final palette = batmanPalette(context);
+
     return Scaffold(
-      body: AnimatedBuilder(
-        animation: Listenable.merge([
-          _searchController,
-          _textController,
-          _glassController,
-          _moveController,
-        ]),
-        builder: (context, child) {
-          return Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: isDark
-                    ? [
-                        const Color(0xFF1A1625),
-                        const Color(0xFF2D2438),
-                        const Color(0xFF3D2F4D),
-                        const Color(0xFF4A3D5C),
-                      ]
-                    : [
-                        const Color(0xFFE8D5F2),
-                        const Color(0xFFF5E6FF),
-                        const Color(0xFFFFE5F1),
-                        const Color(0xFFFFF5E5),
-                      ],
-              ),
-            ),
-              child: Stack(
-                children: [
-                  // Centered effects layer
-                  Center(
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Particle effects that appear with text
-                        AnimatedBuilder(
-                          animation: _particleAnimation,
-                          builder: (context, child) {
-                            return Opacity(
-                              opacity: 1 - _moveController.value,
-                              child: CustomPaint(
-                                size: const Size(500, 500),
-                                painter: ParticlePainter(
-                                  progress: _particleAnimation.value,
-                                  color: isDark
-                                      ? const Color(0xFFB8A9E8).withOpacity(0.6)
-                                      : const Color(0xFF9B7DC6).withOpacity(0.4),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        
-                        // Animated magnifying glass that fades out
-                        AnimatedBuilder(
-                          animation: _searchAnimation,
-                          builder: (context, child) {
-                            // Move in a circular pattern
-                            final double radius = 140;
-                            final double angle = _searchAnimation.value * math.pi * 2;
-                            final double x = math.cos(angle) * radius;
-                            final double y = math.sin(angle) * radius;
-                            
-                            return Transform.translate(
-                              offset: Offset(x, y),
-                              child: AnimatedBuilder(
-                                animation: _glassOpacity,
-                                builder: (context, child) {
-                                  return Opacity(
-                                    opacity: _glassOpacity.value,
-                                    child: Transform.scale(
-                                      scale: _glassScale.value,
-                                      child: Transform.rotate(
-                                        angle: _rotationAnimation.value,
-                                        child: Hero(
-                                          tag: 'park_icon',
-                                          child: Container(
-                                            padding: const EdgeInsets.all(20),
-                                            decoration: BoxDecoration(
-                                              gradient: LinearGradient(
-                                                colors: isDark
-                                                    ? [
-                                                        const Color(0xFF4A3D5C).withOpacity(0.9),
-                                                        const Color(0xFF5B4670).withOpacity(0.9),
-                                                      ]
-                                                    : [
-                                                        const Color(0xFFB8A9E8).withOpacity(0.6),
-                                                        const Color(0xFFE8B8D5).withOpacity(0.6),
-                                                      ],
-                                              ),
-                                              shape: BoxShape.circle,
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: const Color(0xFFB8A9E8).withOpacity(0.4),
-                                                  blurRadius: 40,
-                                                  spreadRadius: 10,
-                                                ),
-                                              ],
-                                            ),
-                                            child: Icon(
-                                              Icons.search,
-                                              size: 50,
-                                              color: isDark
-                                                  ? const Color(0xFFD4C5F9)
-                                                  : const Color(0xFF9B7DC6),
-                                            ),
-                                          ),
+      body: Container(
+        decoration: batmanBackgroundDecoration(context),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: FadeTransition(
+              opacity: _entryFade,
+              child: SlideTransition(
+                position: _entrySlide,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 420),
+                  child: Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: palette.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: palette.border),
+                    ),
+                    child: AnimatedBuilder(
+                      animation: _progress,
+                      builder: (context, child) {
+                        final progressValue = _progress.value;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            SizedBox(
+                              width: 112,
+                              height: 112,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  RotationTransition(
+                                    turns: _spinController,
+                                    child: Container(
+                                      width: 102,
+                                      height: 102,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: palette.accentMuted,
+                                          width: 1.4,
                                         ),
                                       ),
                                     ),
-                                  );
-                                },
+                                  ),
+                                  ScaleTransition(
+                                    scale: _pulse,
+                                    child: Container(
+                                      width: 74,
+                                      height: 74,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: palette.surfaceAlt,
+                                        border: Border.all(
+                                          color: palette.accent,
+                                          width: 1.2,
+                                        ),
+                                      ),
+                                      child: Icon(
+                                        Icons.verified_user_rounded,
+                                        color: palette.accent,
+                                        size: 34,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
-                            );
-                          },
-                        ),
-                        
-                        // Enhanced search trail effect
-                        AnimatedBuilder(
-                          animation: _searchAnimation,
-                          builder: (context, child) {
-                            return CustomPaint(
-                              size: const Size(400, 400),
-                              painter: SearchTrailPainter(
-                                progress: _searchAnimation.value,
-                                color: isDark
-                                    ? const Color(0xFFB8A9E8).withOpacity(0.4)
-                                    : const Color(0xFF9B7DC6).withOpacity(0.3),
+                            ),
+                            const SizedBox(height: 18),
+                            Text(
+                              'Sign In Successful',
+                              style: TextStyle(
+                                color: palette.textPrimary,
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
                               ),
-                            );
-                          },
-                        ),
-                      ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _statusText(progressValue),
+                              style: TextStyle(
+                                color: palette.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 14),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: progressValue,
+                                minHeight: 8,
+                                backgroundColor: palette.surfaceAlt,
+                                valueColor: AlwaysStoppedAnimation(
+                                  palette.accent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
-                  
-                  // Lost & Found text with movement animation
-                  AnimatedBuilder(
-                    animation: _textOpacity,
-                    builder: (context, child) {
-                      return Opacity(
-                        opacity: _textOpacity.value,
-                        child: AnimatedBuilder(
-                          animation: _textPosition,
-                          builder: (context, child) {
-                            return Align(
-                              alignment: Alignment.center +
-                                  Alignment(_textPosition.value.dx, _textPosition.value.dy),
-                              child: Transform.scale(
-                                scale: (0.7 + (_textOpacity.value * 0.3)) * _textScale.value,
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: _moveController.value > 0.3
-                                      ? CrossAxisAlignment.start
-                                      : CrossAxisAlignment.center,
-                                  children: [
-                                    Hero(
-                                      tag: 'lost_found_title',
-                                      child: Material(
-                                        color: Colors.transparent,
-                                        child: ShaderMask(
-                                          shaderCallback: (bounds) => const LinearGradient(
-                                            colors: [Color(0xFF9B7DC6), Color(0xFFE89BC9)],
-                                          ).createShader(bounds),
-                                          child: const Text(
-                                            'Lost & Found',
-                                            style: TextStyle(
-                                              fontSize: 48,
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                              letterSpacing: 1.2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Hide subtitle during move
-                                    if (_moveController.value < 0.3) ...[
-                                      const SizedBox(height: 16),
-                                      Opacity(
-                                        opacity: 1 - (_moveController.value * 3).clamp(0.0, 1.0),
-                                        child: Text(
-                                          'Item Located!',
-                                          style: TextStyle(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w500,
-                                            color: isDark
-                                                ? const Color(0xFFB8A9E8).withOpacity(0.9)
-                                                : const Color(0xFF9B7DC6).withOpacity(0.8),
-                                            letterSpacing: 0.8,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                ),
               ),
-          );
-        },
+            ),
+          ),
+        ),
       ),
     );
-  }
-}
-
-// Custom painter for search trail
-class SearchTrailPainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  
-  SearchTrailPainter({required this.progress, required this.color});
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = 140.0;
-    
-    final path = Path();
-    
-    for (int i = 0; i < (progress * 100).toInt(); i++) {
-      final angle = (i / 100) * math.pi * 2;
-      final x = center.dx + math.cos(angle) * radius;
-      final y = center.dy + math.sin(angle) * radius;
-      
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    
-    canvas.drawPath(path, paint);
-  }
-  
-  @override
-  bool shouldRepaint(SearchTrailPainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
-}
-
-// Custom painter for particle effects
-class ParticlePainter extends CustomPainter {
-  final double progress;
-  final Color color;
-  
-  ParticlePainter({required this.progress, required this.color});
-  
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    
-    final center = Offset(size.width / 2, size.height / 2);
-    
-    // Create multiple particles radiating outward
-    for (int i = 0; i < 12; i++) {
-      final angle = (i / 12) * math.pi * 2;
-      final distance = progress * 100;
-      final x = center.dx + math.cos(angle) * distance;
-      final y = center.dy + math.sin(angle) * distance;
-      
-      final particleSize = 8 * (1 - progress);
-      final particleOpacity = (1 - progress).clamp(0.0, 1.0);
-      
-      paint.color = color.withOpacity(particleOpacity);
-      canvas.drawCircle(Offset(x, y), particleSize, paint);
-    }
-    
-    // Add some sparkle effects
-    for (int i = 0; i < 8; i++) {
-      final angle = (i / 8) * math.pi * 2 + (progress * math.pi);
-      final distance = 60 + (progress * 40);
-      final x = center.dx + math.cos(angle) * distance;
-      final y = center.dy + math.sin(angle) * distance;
-      
-      final sparkleSize = 4 * progress;
-      final sparkleOpacity = (progress * 0.8).clamp(0.0, 1.0);
-      
-      paint.color = color.withOpacity(sparkleOpacity);
-      canvas.drawCircle(Offset(x, y), sparkleSize, paint);
-    }
-  }
-  
-  @override
-  bool shouldRepaint(ParticlePainter oldDelegate) {
-    return oldDelegate.progress != progress;
   }
 }
